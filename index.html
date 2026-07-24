@@ -1,0 +1,2564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SRX — Sales Reconciliation eXpert</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="logo/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="logo/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Forum&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0a1b2e; --muted: #56636f; --muted-soft: #8794a0; --line: #dbe2e8; --line-strong: #c1ccd4;
+  --surface: #ffffff; --surface-soft: #f6f9fa; --surface-sunk: #eef2f3;
+  /* Brand palette sampled directly from the SRX mark (logo/SRX.png):
+     ink navy wordmark + a blue/teal split "X". Everything below is derived from those hues. */
+  --teal: #00A8B5; --teal-dark: #0b4653; --teal-soft: #e7f7f8; --teal-line: #c7edf0;
+  --accent: #0057d9; --accent-dark: #003c99; --accent-soft: #eaf1fd; --accent-line: #cfe0fa;
+  --green: #1f7a49; --green-soft: #eaf5ed; --red: #b23b49; --red-soft: #fbecef;
+  --amber: #8a6120; --amber-soft: #f7eddb; --brand-cyan: #17d6c6;
+  /* Shadow/radius scale and card border-tint adapted from tabler.io's actual authored tokens
+     (--tblr-shadow-card, --tblr-shadow-input, --tblr-border-radius(-lg), --tblr-border-color-translucent)
+     — read from their published CSS and re-based onto our own ink/brand colors rather than
+     linking the framework itself, since the generated report has to stay a single offline file. */
+  --shadow-sm: 0 1px 2px rgba(10,27,46,.08); --shadow: 0 2px 5px rgba(10,27,46,.10); --shadow-lg: 0 4px 10px rgba(10,27,46,.16);
+  --radius: 4px; --radius-sm: 3px;
+  --line-translucent: rgba(10,27,46,.08);
+  --font-sans: "Inter Var", Inter, "Segoe UI Variable Display", "Segoe UI Variable Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+* { scrollbar-width: thin; scrollbar-color: rgba(0,168,181,.4) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(0,168,181,.4); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(0,168,181,.6); }
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body { margin: 0; background: #f7f9fa; color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid rgba(0,168,181,.3); outline-offset: 2px; }
+h1, h2, h3 { font-weight: 700; letter-spacing: -.02em; }
+strong { font-weight: 650; }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px clamp(18px,3vw,44px); background: linear-gradient(180deg, #ffffff, #fdfefe);
+  border-bottom: 1px solid var(--line); position: relative;
+}
+.brand { display: flex; align-items: center; gap: 16px; }
+.brand .logo { height: 74px; width: auto; object-fit: contain; display: block; flex: none; }
+.brand-word strong { display: block; font-size: 17px; font-weight: 800; letter-spacing: .01em; color: var(--ink); }
+.brand-word span {
+  display: block; color: var(--teal-dark); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em; margin-top: 2px;
+}
+.status-cluster { display: flex; align-items: center; gap: 8px; }
+
+.pill {
+  display: flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; white-space: nowrap; border: 1px solid transparent;
+  transition: background .15s ease, border-color .15s ease, transform .1s ease;
+}
+.token-meter { background: var(--teal-soft); color: var(--teal-dark); border-color: var(--teal-line); cursor: default; }
+.token-meter .token-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); flex: none; }
+.token-meter.busy { background: #e5f6f8; border-color: #8bcfd6; }
+
+.dest-pill {
+  background: var(--surface-soft); color: #3b4d54; border-color: var(--line-strong); cursor: pointer;
+}
+.dest-pill:hover { background: var(--teal-soft); border-color: var(--teal-line); color: var(--teal-dark); transform: translateY(-1px); }
+.dest-pill.unset { background: var(--accent-soft); color: var(--accent-dark); border-color: var(--accent-line); }
+.dest-pill.unset:hover { border-color: #b3cef6; }
+.dest-pill svg { width: 13px; height: 13px; flex: none; }
+.dest-pill .dest-text { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+
+.api-bar { display: none; }
+.api-bar .field { display: grid; gap: 6px; }
+.api-bar label { font-size: 12px; font-weight: 700; color: #33474e; }
+.api-hint { margin: 0; color: var(--muted); font-size: 11.5px; max-width: 480px; }
+.key-row { position: relative; display: flex; align-items: center; }
+.key-row input { width: 220px; min-height: 38px; border: 1px solid var(--line-strong); border-radius: 4px; padding: 7px 34px 7px 10px; background: white; }
+.key-peek { position: absolute; left: 1px; top: 1px; right: 1px; bottom: 1px; background: white; border-radius: 4px; align-items: center; padding: 0 34px 0 10px; font-family: "Cascadia Code", ui-monospace, monospace; letter-spacing: .03em; font-size: 13px; }
+.key-peek:not([hidden]) { display: flex; }
+.icon-btn { position: absolute; right: 4px; border: 0; background: transparent; cursor: pointer; width: 28px; height: 28px; border-radius: 3px; display: grid; place-items: center; }
+.icon-btn:hover { background: var(--teal-soft); }
+#modelSelect, #customModelInput { min-height: 38px; border: 1px solid var(--line-strong); border-radius: 4px; padding: 7px 10px; background: white; min-width: 220px; }
+
+main { max-width: 1180px; margin: 0 auto; padding: 32px clamp(18px,3vw,44px) 28px; }
+.screen h2 { margin: 0 0 10px; font-size: 22px; letter-spacing: -.025em; }
+.screen-eyebrow { display: block; color: var(--teal); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.setup-headline { margin: 0 0 24px; font-size: 30px; line-height: 1.2; letter-spacing: -.035em; max-width: 640px; }
+
+.how-it-works { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: 4px; margin: 0 0 32px; }
+.hiw-card {
+  background: white; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow-sm); opacity: 0; transform: translateY(10px);
+  animation: hiwIn .45s cubic-bezier(.2,.7,.3,1) forwards;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.hiw-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--teal-line); }
+.hiw-card:nth-child(1) { animation-delay: .05s; }
+.hiw-card:nth-child(3) { animation-delay: .16s; }
+.hiw-card:nth-child(5) { animation-delay: .27s; }
+@keyframes hiwIn { to { opacity: 1; transform: translateY(0); } }
+.hiw-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.hiw-num {
+  font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1; flex: none;
+  color: var(--teal); opacity: .8; font-variant-numeric: tabular-nums;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.hiw-card:hover .hiw-num { opacity: 1; transform: translateX(-1px); }
+.hiw-card h3 { margin: 0; font-size: 14.5px; letter-spacing: -.01em; }
+.hiw-card p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+.hiw-chevron { align-self: center; display: flex; align-items: center; color: var(--line-strong); }
+.hiw-chevron svg { width: 16px; height: 16px; }
+
+.banner { padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 18px; font-size: 13px; border: 1px solid transparent; }
+.banner.error { background: var(--red-soft); color: var(--red); border-color: #f0c6cc; }
+.banner.info { background: var(--teal-soft); color: var(--teal-dark); border-color: var(--teal-line); }
+
+.setup-grid { display: grid; gap: 16px; max-width: 420px; margin-bottom: 28px; }
+.setup-grid input {
+  min-height: 48px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  padding: 10px 14px; background: white; width: 100%; font-size: 15px; font-weight: 600;
+  letter-spacing: -.01em; box-shadow: var(--shadow-sm); transition: border-color .15s ease, box-shadow .15s ease;
+}
+.setup-grid input:focus-visible { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); outline: none; }
+.setup-grid label { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; display: block; }
+
+.folder-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 28px; }
+.folder-card {
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; background: white;
+  box-shadow: var(--shadow-sm); display: flex; flex-direction: column; transition: box-shadow .15s ease, border-color .15s ease;
+}
+.folder-card:hover { box-shadow: var(--shadow); border-color: var(--line-strong); }
+.folder-card .kind-icon {
+  width: 34px; height: 34px; border-radius: 4px; background: var(--teal-soft); color: var(--teal-dark);
+  display: grid; place-items: center; margin-bottom: 12px; flex: none;
+}
+.folder-card .kind-icon svg { width: 17px; height: 17px; }
+.folder-card h3 { margin: 0 0 6px; font-size: 14.5px; letter-spacing: -.01em; display: flex; align-items: center; gap: 7px; }
+.optional-tag {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted-soft); background: var(--surface-soft); border: 1px solid var(--line);
+  border-radius: 4px; padding: 2px 6px; line-height: 1.4;
+}
+.folder-card p { margin: 0 0 16px; color: var(--muted); font-size: 12.5px; min-height: 32px; line-height: 1.5; }
+.folder-card .pick-folder-btn { margin-top: auto; }
+.folder-status { margin: 12px 0 0; font-size: 12px; color: var(--muted-soft); }
+.folder-status.ready { color: var(--teal-dark); font-weight: 700; }
+#beginBtn { margin-bottom: 36px; min-height: 48px; padding: 11px 26px; font-size: 14.5px; }
+
+.open-discrepancies-section { margin-bottom: 28px; max-width: 760px; }
+.open-discrepancies-section h3 { margin: 0 0 4px; font-size: 15px; letter-spacing: -.01em; }
+.resume-section { border: 1px solid var(--line); border-radius: var(--radius); background: white; padding: 20px; margin-bottom: 28px; max-width: 640px; box-shadow: var(--shadow-sm); }
+.resume-section h3 { margin: 0 0 4px; font-size: 15px; letter-spacing: -.01em; }
+.resume-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.resume-row .control { flex: 1; min-width: 200px; }
+.processing-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 18px 0 16px; }
+.processing-stat { border: 1px solid var(--line); border-radius: var(--radius); background: white; padding: 12px 14px; box-shadow: var(--shadow-sm); }
+.processing-stat span { display: block; color: var(--muted-soft); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.processing-stat strong { display: block; font-size: 21px; letter-spacing: -.02em; color: var(--ink); }
+.control { min-height: 42px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 8px 12px; background: white; box-shadow: var(--shadow-sm); }
+select.control {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 36px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%235c6d74' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 13px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+select.control:hover { border-color: #9fb2b6; }
+select.control:focus-visible { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); outline: none; }
+
+.primary-btn, .outline-btn, .ghost-btn {
+  border-radius: var(--radius-sm); min-height: 42px; padding: 9px 18px; font-weight: 500; font-size: 13.5px;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 8px; letter-spacing: -.005em;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .08s ease;
+}
+.primary-btn {
+  border: 1px solid var(--teal-dark); color: white; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, var(--teal) 0%, var(--accent) 100%);
+  box-shadow: 0 1px 2px rgba(11,70,83,.25), inset 0 1px 0 rgba(255,255,255,.2);
+}
+.primary-btn::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px;
+  background: var(--brand-cyan); opacity: 0; transform: translateY(2px); border-radius: 2px 2px 0 0;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.primary-btn:hover { box-shadow: 0 3px 8px rgba(11,70,83,.32), inset 0 1px 0 rgba(255,255,255,.2); }
+.primary-btn:hover::after { opacity: .9; transform: translateY(0); }
+.primary-btn:active { transform: translateY(1px); }
+.primary-btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+.primary-btn:disabled::after { display: none; }
+.outline-btn { border: 1px solid var(--line-strong); background: white; color: var(--teal-dark); }
+.outline-btn:hover { background: var(--teal-soft); border-color: var(--teal-line); }
+.outline-btn:disabled { opacity: .4; cursor: not-allowed; }
+.ghost-btn { border: 1px solid var(--line-strong); background: white; color: #41545b; }
+.ghost-btn:hover { background: var(--surface-soft); }
+
+.step-list { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 12px; }
+.step-list li { display: flex; align-items: center; gap: 11px; color: var(--muted); font-size: 13.5px; font-weight: 550; }
+.step-list li .dot { width: 21px; height: 21px; border-radius: 50%; border: 2px solid var(--line-strong); display: grid; place-items: center; font-size: 11px; flex: none; transition: all .2s ease; }
+.step-list li.active { color: var(--ink); font-weight: 700; }
+.step-list li.active .dot { border-color: var(--teal); color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
+.step-list li.done .dot { border-color: var(--green); background: var(--green); color: white; }
+.step-list li.done { color: var(--ink); }
+.progress-log { max-height: 220px; overflow: auto; background: white; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; font-size: 12.5px; color: #44545a; display: grid; gap: 5px; margin-bottom: 16px; font-family: "Cascadia Code", ui-monospace, monospace; }
+
+.reconcile-summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
+.reconcile-summary strong { font-size: 17px; letter-spacing: -.02em; }
+.reconcile-summary span { color: var(--muted); font-size: 12.5px; }
+.hint { color: var(--muted); font-size: 13px; }
+
+.discrepancy-list { margin: 14px 0 26px; }
+.discrepancy-jumplist { display: flex; flex-wrap: wrap; gap: 8px; }
+.discrepancy-jump-btn {
+  display: inline-flex; align-items: center; gap: 7px; border: 1px solid #e6d3ab; background: var(--amber-soft);
+  color: #5a4a2f; border-radius: 999px; padding: 6px 14px 6px 8px; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: transform .1s ease, box-shadow .15s ease;
+}
+.discrepancy-jump-btn:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+
+.expand-toggle {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer; padding: 3px 10px;
+  border-radius: 999px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--amber-soft); color: var(--amber);
+}
+.expand-toggle svg { width: 11px; height: 11px; transition: transform .15s ease; flex: none; }
+.expand-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+tr.discrepancy-drawer-row td { padding: 0; border-bottom: 1px solid var(--line); }
+.drawer-content { border-left: 3px solid var(--amber); background: var(--amber-soft); padding: 18px 20px; }
+.evidence-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.evidence-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 4px; background: white; border: 1px solid var(--line-strong); }
+.evidence-badge svg { width: 13px; height: 13px; flex: none; }
+.evidence-badge.found { color: var(--green); border-color: #cce3d3; }
+.evidence-badge.missing { color: var(--red); border-color: #f0c6cc; }
+.discrepancy-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; gap: 10px; }
+.discrepancy-head strong { font-size: 13.5px; letter-spacing: -.01em; }
+.drawer-content .issue { margin: 0 0 12px; font-size: 13px; color: #5a4a2f; line-height: 1.5; }
+.resolution-input { width: 100%; min-height: 60px; border: 1px solid var(--line-strong); border-radius: 4px; padding: 9px 11px; background: white; resize: vertical; box-shadow: var(--shadow-sm); }
+.discrepancy-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.discrepancy-actions button { min-height: 36px; padding: 7px 12px; font-size: 12.5px; }
+
+tr.tx-excluded td { opacity: .55; font-style: italic; }
+tr.tx-excluded .restore-btn { font-style: normal; }
+.restore-btn { min-height: 26px; padding: 3px 10px; font-size: 11.5px; }
+
+.badge { display: inline-flex; padding: 3px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 700; white-space: nowrap; text-transform: uppercase; letter-spacing: .04em; }
+.badge.priority-high { background: var(--red-soft); color: var(--red); }
+.badge.priority-medium { background: var(--amber-soft); color: var(--amber); }
+.badge.priority-low { background: var(--surface-soft); color: var(--muted); }
+.badge.warn { background: var(--amber-soft); color: var(--amber); }
+.badge.ok { background: var(--green-soft); color: var(--green); }
+.badge.excluded { background: var(--surface-sunk); color: var(--muted-soft); }
+
+.table-scroll { overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: white; }
+table.plain-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+.plain-table th, .plain-table td { padding: 11px 14px; border-bottom: 1px solid var(--line); text-align: left; font-size: 13px; white-space: nowrap; }
+.plain-table th { background: var(--surface-soft); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #435259; }
+.plain-table tbody tr:hover { background: var(--surface-soft); }
+.plain-table td.num, .plain-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.flag-row { background: #fdf7ea; }
+tr.flag-row:hover { background: #faefd4; }
+.positive { color: var(--green); } .negative { color: var(--red); } .neutral { color: var(--muted); }
+
+.export-kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 24px; }
+.export-kpis .kpi { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; background: white; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; }
+.export-kpis .kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--teal); opacity: .55; }
+.export-kpis .kpi span { display: block; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+.export-kpis .kpi strong { font-size: 23px; letter-spacing: -.03em; font-weight: 750; }
+.export-actions { display: flex; gap: 12px; margin-bottom: 24px; }
+.report-preview { width: 100%; height: 70vh; border: 1px solid var(--line); border-radius: var(--radius); background: white; box-shadow: var(--shadow-sm); }
+
+@media (max-width: 860px) {
+  .folder-grid { grid-template-columns: 1fr; }
+  .export-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .processing-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .api-bar { flex-direction: column; align-items: stretch; }
+  .key-row input, #modelSelect, #customModelInput { width: 100%; }
+  .dest-pill .dest-text { max-width: 120px; }
+  .how-it-works { grid-template-columns: 1fr; gap: 14px; }
+  .hiw-chevron { display: none; }
+}
+@media (max-width: 560px) {
+  .processing-stats { grid-template-columns: 1fr; }
+}
+
+.brand-footer {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  max-width: 1180px; margin: 0 auto; padding: 14px clamp(18px,3vw,44px) 22px;
+  border-top: 1px solid var(--line);
+  color: var(--muted-soft); font-size: 11.5px; font-weight: 500; letter-spacing: .03em;
+}
+.brand-footer svg { width: 15px; height: 15px; display: block; opacity: .85; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <img class="logo" src="logo/SRX-icon.png" alt="SRX logo">
+    <div class="brand-word">
+      <strong>SRX</strong>
+      <span>Reconcile. Resolve. Report.</span>
+    </div>
+  </div>
+  <div class="status-cluster">
+    <div id="tokenMeter" class="pill token-meter" hidden title="AI tokens spent so far">
+      <span class="token-dot"></span>
+      <span id="tokenMeterText">0 tokens</span>
+    </div>
+    <button id="destinationPill" class="pill dest-pill unset" type="button" title="Choose where reports are saved">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+      <span class="dest-text" id="destinationPillText">Choose destination&hellip;</span>
+    </button>
+    <button id="startOverBtn" class="ghost-btn" type="button" hidden>Start over</button>
+  </div>
+</header>
+
+<div class="api-bar">
+  <div class="field">
+    <label for="apiKeyInput">SRX Intelligence API key</label>
+    <div class="key-row">
+      <input id="apiKeyInput" type="password" placeholder="gsk_&hellip;" autocomplete="off" spellcheck="false">
+      <span id="keyPeek" class="key-peek" hidden></span>
+      <button id="toggleKeyBtn" class="icon-btn" type="button" aria-pressed="false" aria-label="Preview key characters">&#128065;</button>
+    </div>
+  </div>
+  <div class="field">
+    <label for="modelSelect">Model</label>
+    <select id="modelSelect">
+      <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash</option>
+    </select>
+    <input id="customModelInput" type="text" placeholder="exact SRX Intelligence model id" hidden>
+  </div>
+  <p class="api-hint">Sent directly from this browser to SRX Intelligence's API &mdash; visible in this browser's network requests, never stored on any server, and cleared when you close this tab. Switch the key or model any time.</p>
+</div>
+
+<main>
+  <section id="screen-setup" class="screen">
+    <h2 class="setup-headline">Raw invoices in. A polished report out.</h2>
+    <div id="setupBanner" class="banner error" hidden></div>
+
+    <div class="how-it-works" aria-label="How this works">
+      <div class="hiw-card">
+        <div class="hiw-head"><h3>Point to your invoices</h3><span class="hiw-num">1</span></div>
+        <p>Select Source, Raised, and Paid invoice folders</p>
+      </div>
+      <span class="hiw-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+      <div class="hiw-card">
+        <div class="hiw-head"><h3>AI reconciles the month</h3><span class="hiw-num">2</span></div>
+        <p>Matches every document and flags what needs a decision</p>
+      </div>
+      <span class="hiw-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+      <div class="hiw-card">
+        <div class="hiw-head"><h3>Resolve &amp; ship the report</h3><span class="hiw-num">3</span></div>
+        <p>One click — branded and standalone, saved straight to reports/</p>
+      </div>
+    </div>
+
+    <div class="setup-grid">
+      <div>
+        <label for="monthInput">Reporting month</label>
+        <input id="monthInput" type="text" placeholder="e.g. July 2026">
+      </div>
+    </div>
+    <div class="folder-grid">
+      <article class="folder-card" data-kind="source">
+        <span class="kind-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M15 2v5h5"/><path d="M9 13h6M9 17h6"/></svg></span>
+        <h3>Source Invoice</h3>
+        <p>Supplier invoices, booking records, or source-cost evidence</p>
+        <button class="outline-btn pick-folder-btn" type="button" data-kind="source">Choose folder&hellip;</button>
+        <p class="folder-status" data-status="source">No folder selected</p>
+      </article>
+      <article class="folder-card" data-kind="raised">
+        <span class="kind-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>
+        <h3>Raised Invoice</h3>
+        <p>Customer-facing raised or proforma invoices</p>
+        <button class="outline-btn pick-folder-btn" type="button" data-kind="raised">Choose folder&hellip;</button>
+        <p class="folder-status" data-status="raised">No folder selected</p>
+      </article>
+      <article class="folder-card" data-kind="paid">
+        <span class="kind-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10h18M5 6h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="m9 15 2 2 4-4"/></svg></span>
+        <h3>Paid Invoice</h3>
+        <p>Paid-invoice or payment evidence</p>
+        <button class="outline-btn pick-folder-btn" type="button" data-kind="paid">Choose folder&hellip;</button>
+        <p class="folder-status" data-status="paid">No folder selected</p>
+      </article>
+    </div>
+    <button id="beginBtn" class="primary-btn" type="button" disabled>Reconcile</button>
+
+    <div id="openDiscrepanciesSection" class="open-discrepancies-section" hidden>
+      <h3>Needs attention</h3>
+      <p class="hint">Reconciled months left with unresolved discrepancies.</p>
+      <div class="table-scroll">
+        <table class="plain-table">
+          <thead><tr><th>Month</th><th class="num">Open discrepancies</th><th></th></tr></thead>
+          <tbody id="openDiscrepancyRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="resumeSection" class="resume-section" hidden>
+      <h3>Reopen a finished month's report</h3>
+      <p class="hint">Loads that month back in exactly as you left it — no AI calls.</p>
+      <div class="resume-row">
+        <select id="resumeSelect" class="control"></select>
+        <button id="resumeLoadBtn" class="primary-btn" type="button">Load</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-processing" class="screen" hidden>
+    <span class="screen-eyebrow">In progress</span>
+    <h2>Reconciling <span id="processingMonth"></span>&hellip;</h2>
+    <div class="processing-stats">
+      <div class="processing-stat"><span>Elapsed</span><strong id="processingElapsed">00:00</strong></div>
+      <div class="processing-stat"><span>AI calls</span><strong id="processingCalls">0</strong></div>
+      <div class="processing-stat"><span>Total tokens</span><strong id="processingTokens">0</strong></div>
+      <div class="processing-stat"><span>Current stage</span><strong id="processingStage">Waiting</strong></div>
+    </div>
+    <ol id="stepList" class="step-list"></ol>
+    <div id="progressLog" class="progress-log" aria-live="polite"></div>
+    <div id="processingError" class="banner error" hidden></div>
+    <button id="backToSetupBtn" class="outline-btn" type="button" hidden>Back to setup</button>
+  </section>
+
+  <section id="screen-reconcile" class="screen" hidden>
+    <div class="reconcile-summary">
+      <div><span class="screen-eyebrow">Review</span><strong id="reconcileMonth"></strong><span id="reconcileCounts"></span></div>
+      <button id="generateReportBtn" class="primary-btn" type="button" disabled>Generate report</button>
+    </div>
+    <p id="reconcileHint" class="hint"></p>
+    <div id="discrepancyList" class="discrepancy-list"></div>
+    <h3>All transactions</h3>
+    <div class="table-scroll">
+      <table class="plain-table">
+        <thead><tr><th>Transaction</th><th>Type</th><th>Customer</th><th class="num">Sales</th><th class="num">Cost</th><th class="num">Net P/L</th><th class="num">Margin</th><th>Status</th></tr></thead>
+        <tbody id="reconcileRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="screen-export" class="screen" hidden>
+    <span class="screen-eyebrow">Complete</span>
+    <h2><span id="exportMonth"></span> report is ready</h2>
+    <div class="export-kpis" id="exportKpis"></div>
+    <div id="exportSaveNote" class="banner info" hidden></div>
+    <div class="export-actions">
+      <button id="downloadReportBtn" class="primary-btn" type="button">Download report</button>
+      <button id="startNewBtn" class="outline-btn" type="button">Start a new month</button>
+    </div>
+    <iframe id="reportPreview" class="report-preview" title="Report preview"></iframe>
+  </section>
+</main>
+
+<p class="brand-footer">
+  <svg viewBox="0 0 64 64" role="img" aria-label="Improve Software Labs">
+    <defs>
+      <linearGradient id="improvePurple" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#dc9bff"/>
+        <stop offset="0.48" stop-color="#7e44c7"/>
+        <stop offset="1" stop-color="#442178"/>
+      </linearGradient>
+    </defs>
+    <path d="M32 3 58 18v28L32 61 6 46V18L32 3Z" fill="url(#improvePurple)"/>
+    <path d="M32 3v58L6 46V18L32 3Z" fill="#ffffff" opacity=".18"/>
+    <path d="M58 18 32 32 32 3 58 18Z" fill="#ffffff" opacity=".16"/>
+    <path d="M6 18 32 32 6 46V18Z" fill="#0e1010" opacity=".14"/>
+    <path d="M26 19h12v30H26v-6h3V25h-3v-6Z" fill="#ffffff"/>
+    <path d="M20 25 13 32l7 7 3-4-3-3 3-3-3-4Zm24 0-3 4 3 3-3 3 3 4 7-7-7-7Z" fill="#e7d8ff" opacity=".9"/>
+  </svg>
+  <span>Solution By &copy; IMprove Software Labs</span>
+</p>
+
+<script type="text/plain" id="reportSource"><!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive @@MONTH_TITLE@@ travel sales report">
+  <title>@@MONTH_TITLE@@ Sales Report</title>
+  <style>
+    :root {
+      --ink: #0a1b2e;
+      --muted: #56636f;
+      --line: #dfe6e8;
+      --line-strong: #c1ccd4;
+      --surface: #ffffff;
+      --surface-soft: #f6f9f9;
+      --teal: #00A8B5;
+      --teal-dark: #0b4653;
+      --teal-soft: #e7f7f8;
+      --accent: #0057d9;
+      --accent-dark: #003c99;
+      --accent-soft: #eaf1fd;
+      --green: #1f7a49;
+      --green-soft: #eaf5ed;
+      --red: #b23b49;
+      --red-soft: #fbecef;
+      --amber: #8a6120;
+      --brand-cyan: #17d6c6;
+      --shadow: 0 0 4px rgba(10, 27, 46, .06), 0 2px 10px rgba(10, 27, 46, .05);
+      --radius: 7px;
+      --line-translucent: rgba(10, 27, 46, .08);
+      --sidebar: 272px;
+      --font-sans: "Segoe UI Variable Display", "Segoe UI Variable Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    * { scrollbar-width: thin; scrollbar-color: rgba(0, 168, 181, .4) transparent; }
+    *::-webkit-scrollbar { width: 6px; height: 6px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: rgba(0, 168, 181, .4); border-radius: 999px; }
+    *::-webkit-scrollbar-thumb:hover { background: rgba(0, 168, 181, .6); }
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+    body {
+      margin: 0;
+      background: var(--surface);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      font-variant-numeric: tabular-nums;
+    }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    :focus-visible { outline: 3px solid rgba(11, 70, 83, .25); outline-offset: 2px; }
+
+    .app { min-height: 100vh; display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); }
+    .sidebar {
+      border-right: 1px solid var(--line);
+      padding: 28px 22px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      background: #fbfcfc;
+      z-index: 20;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; margin-bottom: 34px; }
+    .brand-mark {
+      width: 34px; height: 34px; border-radius: 7px;
+      display: grid; place-items: center; background: var(--teal); color: white;
+      font-weight: 800; letter-spacing: -.04em;
+    }
+    .brand strong { display: block; font-size: 15px; }
+    .brand span { color: var(--muted); font-size: 12px; }
+    .filter-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .filter-heading h2 { font-size: 17px; margin: 0; }
+    .sidebar-close { display: none; border: 0; background: transparent; width: 34px; height: 34px; border-radius: 50%; font-size: 24px; cursor: pointer; }
+    .sidebar-close:hover { background: var(--surface-soft); }
+    .filter-group { border-top: 1px solid var(--line); padding: 20px 0; }
+    .filter-group:first-of-type { border-top: 0; padding-top: 0; }
+    .filter-group label { display: block; font-weight: 650; margin-bottom: 8px; font-size: 12px; color: #39494f; }
+    .control {
+      width: 100%; min-height: 42px; border: 1px solid var(--line-strong); border-radius: 7px;
+      background: white; padding: 9px 11px; color: var(--ink);
+    }
+    .control:hover { border-color: #9fb2b6; }
+    .stack { display: grid; gap: 12px; }
+    .reset-btn, .outline-btn, .primary-btn {
+      border: 1px solid var(--teal); min-height: 40px; border-radius: 7px; padding: 8px 14px;
+      background: white; color: var(--teal-dark); font-weight: 500; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .reset-btn { width: 100%; margin-top: 8px; }
+    .reset-btn:hover, .outline-btn:hover { background: var(--teal-soft); }
+    .primary-btn {
+      background: linear-gradient(135deg, var(--teal) 0%, var(--accent) 100%); color: white;
+      border-color: var(--teal-dark); position: relative; overflow: hidden;
+      box-shadow: 0 1px 2px rgba(11,70,83,.25), inset 0 1px 0 rgba(255,255,255,.2);
+    }
+    .primary-btn::after {
+      content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px;
+      background: var(--brand-cyan); opacity: 0; transition: opacity .15s ease;
+    }
+    .primary-btn:hover { box-shadow: 0 6px 16px rgba(11,70,83,.3), inset 0 1px 0 rgba(255,255,255,.2); }
+    .primary-btn:hover::after { opacity: .9; }
+    .result-count { font-size: 30px; line-height: 1; color: var(--teal); font-weight: 760; }
+    .result-label { color: var(--muted); margin-top: 7px; }
+
+    .content { min-width: 0; }
+    .topbar {
+      min-height: 88px; padding: 17px 28px; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      position: sticky; top: 0; background: rgba(255,255,255,.96); backdrop-filter: blur(12px); z-index: 15;
+    }
+    .title-wrap h1 { font-size: clamp(23px, 2.2vw, 30px); line-height: 1.15; margin: 0 0 5px; letter-spacing: -.035em; }
+    .title-wrap p { margin: 0; color: var(--muted); }
+    .top-actions { display: flex; gap: 10px; }
+    .icon { width: 17px; height: 17px; display: inline-block; }
+    .filter-toggle { display: none; }
+
+    main { padding: 24px 28px 48px; max-width: 1680px; margin: 0 auto; }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .kpi {
+      padding: 19px 19px 17px; border: 1px solid var(--line-translucent); border-radius: var(--radius);
+      min-height: 122px; background: white; box-shadow: var(--shadow-sm, 0 1px 1px rgba(10,27,46,.06));
+      position: relative; overflow: hidden;
+    }
+    .kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--teal); opacity: .55; }
+    .kpi:nth-child(3)::before { background: var(--accent); }
+    .kpi:nth-child(4)::before { background: var(--green); }
+    .kpi-label { color: var(--muted); font-weight: 650; display: flex; justify-content: space-between; align-items: center; }
+    .kpi-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--teal-soft); color: var(--teal); display: grid; place-items: center; }
+    .kpi-value { font-size: clamp(22px, 2vw, 30px); font-weight: 760; letter-spacing: -.035em; margin: 11px 0 3px; white-space: nowrap; }
+    .kpi-note { color: var(--muted); font-size: 12px; }
+    .positive { color: var(--green) !important; }
+    .negative { color: var(--red) !important; }
+    .neutral { color: var(--muted) !important; }
+
+    .visuals { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, .8fr); gap: 14px; margin-bottom: 18px; }
+    .panel { border: 1px solid var(--line-translucent); border-radius: var(--radius); background: white; padding: 18px; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+    .panel-head h2 { font-size: 15px; margin: 0; }
+    .panel-head span { color: var(--muted); font-size: 12px; }
+    .pnl-chart { display: grid; gap: 8px; max-height: 228px; overflow: auto; padding-right: 5px; }
+    .pnl-row { display: grid; grid-template-columns: 132px 1fr 90px; align-items: center; gap: 10px; min-height: 24px; }
+    .pnl-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3a494e; font-size: 12px; }
+    .pnl-track { height: 9px; position: relative; background: linear-gradient(to right, #f3f5f5 49.8%, #bcc9cc 49.8%, #bcc9cc 50.2%, #f3f5f5 50.2%); border-radius: 5px; overflow: hidden; }
+    .pnl-bar { height: 100%; position: absolute; border-radius: 5px; min-width: 2px; }
+    .pnl-bar.profit { left: 50%; background: var(--green); }
+    .pnl-bar.loss { right: 50%; background: var(--red); }
+    .pnl-number { text-align: right; font-weight: 680; font-size: 12px; }
+    .category-wrap { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 20px; min-height: 180px; }
+    .donut { width: 138px; aspect-ratio: 1; border-radius: 50%; position: relative; background: conic-gradient(var(--teal) 0 var(--flight-share), #0057d9 var(--flight-share) 100%); }
+    .donut::after { content: ""; position: absolute; inset: 28px; background: white; border-radius: 50%; }
+    .donut-center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 1; font-weight: 750; }
+    .donut-center small { display: block; color: var(--muted); font-size: 10px; font-weight: 600; }
+    .legend { display: grid; gap: 13px; }
+    .legend-row { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; }
+    .swatch { width: 9px; height: 9px; border-radius: 50%; }
+    .legend-row strong { font-size: 12px; }
+    .legend-row span { color: var(--muted); font-size: 12px; }
+
+    .table-panel { padding: 0; overflow: hidden; }
+    .table-toolbar { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+    .table-toolbar h2 { margin: 0; font-size: 16px; }
+    .table-toolbar span { color: var(--muted); font-size: 12px; }
+    .table-scroll { overflow: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 1080px; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+    th { background: #f7f9f9; color: #435259; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 750; }
+    th button { border: 0; background: transparent; padding: 0; cursor: pointer; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; }
+    tbody tr { cursor: pointer; transition: background .15s ease; }
+    tbody tr:hover { background: #f5fbfb; }
+    tbody tr.selected { background: var(--teal-soft); box-shadow: inset 3px 0 var(--teal); }
+    td { font-size: 13px; }
+    td.numeric { text-align: right; }
+    .tx-name { font-weight: 730; color: var(--teal-dark); }
+    .type-label { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 5px;
+      font-size: 11px; font-weight: 700; background: var(--green-soft); color: var(--green); border: 1px solid #cce3d3;
+    }
+    .status.internal { background: #f0f2f3; border-color: #d8dfe1; color: #58656a; }
+    tfoot td { background: #fafcfc; font-weight: 760; border-bottom: 0; }
+    .empty { text-align: center; padding: 48px 20px !important; color: var(--muted); }
+
+    .note-bar { margin-top: 14px; color: var(--muted); font-size: 12px; display: flex; gap: 8px; align-items: flex-start; }
+    .note-bar strong { color: #425157; }
+
+    .drawer-backdrop { position: fixed; inset: 0; background: rgba(12, 29, 34, .18); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 39; }
+    .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+    .drawer {
+      position: fixed; top: 0; right: 0; bottom: 0; width: min(430px, 94vw); background: white;
+      border-left: 1px solid var(--line); box-shadow: -18px 0 45px rgba(20, 42, 48, .12);
+      transform: translateX(102%); transition: transform .25s ease; z-index: 40; overflow: auto; padding: 24px;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+    .drawer-head h2 { margin: 0 0 5px; font-size: 21px; }
+    .drawer-head p { margin: 0; color: var(--muted); }
+    .close-btn { border: 0; background: transparent; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; font-size: 24px; }
+    .close-btn:hover { background: var(--surface-soft); }
+    .detail-section { padding: 20px 0; border-bottom: 1px solid var(--line); }
+    .detail-section h3 { margin: 0 0 13px; font-size: 13px; }
+    .detail-grid { display: grid; gap: 11px; }
+    .detail-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; }
+    .detail-row span:first-child { color: var(--muted); }
+    .detail-note { background: var(--surface-soft); border-radius: 7px; padding: 13px; color: #44545a; }
+
+    @media (max-width: 1180px) {
+      .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .visuals { grid-template-columns: 1fr; }
+      .category-wrap { grid-template-columns: 130px minmax(180px, 1fr); }
+    }
+    @media (max-width: 860px) {
+      .app { display: block; }
+      .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: min(330px, 90vw); transform: translateX(-102%); transition: transform .22s ease; box-shadow: var(--shadow); }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-close { display: inline-grid; place-items: center; }
+      .filter-toggle { display: inline-flex; }
+      .topbar { padding: 14px 18px; }
+      main { padding: 18px; }
+      .top-actions .print-label { display: none; }
+    }
+    @media (max-width: 560px) {
+      .kpis { grid-template-columns: 1fr; }
+      .topbar { align-items: flex-start; }
+      .top-actions { gap: 7px; }
+      .outline-btn, .primary-btn { padding: 8px 10px; }
+      .category-wrap { grid-template-columns: 1fr; justify-items: center; text-align: left; }
+      .legend { width: 100%; }
+      .pnl-row { grid-template-columns: 90px 1fr 75px; }
+      .title-wrap p { font-size: 12px; }
+    }
+
+    /* Embedded filter redesign */
+    :root {
+      --ink: #0a1b2e;
+      --muted: #56636f;
+      --line: #dbe2e8;
+      --surface-soft: #f6f9fa;
+      --teal: #00A8B5;
+      --teal-dark: #0b4653;
+      --teal-soft: #e7f7f8;
+      --accent: #0057d9;
+      --accent-dark: #003c99;
+      --accent-soft: #eaf1fd;
+      --radius: 7px;
+    }
+    body { background: #f7f9fa; }
+    h1, h2, h3 { letter-spacing: -.02em; }
+    .app { display: block; min-height: 100vh; }
+    .content { width: 100%; }
+    .topbar {
+      position: relative; min-height: 132px; padding: 16px clamp(20px, 3vw, 46px);
+      background: white; border-bottom: 1px solid var(--line);
+      display: grid; grid-template-columns: minmax(130px, 1fr) auto minmax(130px, 1fr);
+      align-items: center; gap: 24px;
+    }
+    .topbar::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+      background: linear-gradient(90deg, var(--teal) 0%, var(--brand-cyan) 45%, var(--accent) 100%); opacity: .5;
+    }
+    @media print { .topbar::after { display: none; } }
+    .altaj-logo { justify-self: start; width: 96px; height: 96px; display: grid; place-items: center; }
+    .logo-image { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .report-heading { text-align: center; display: grid; justify-items: center; gap: 7px; }
+    .report-heading h1 { margin: 0; font-size: clamp(26px, 2.3vw, 35px); line-height: 1.08; letter-spacing: -.04em; }
+    .report-heading p { margin: 0; color: var(--muted); }
+    .period-button {
+      border: 1px solid var(--line-strong); background: white; min-height: 38px;
+      border-radius: 7px; padding: 7px 12px; display: inline-flex; align-items: center;
+      gap: 8px; color: #405158; font-weight: 650; cursor: default;
+    }
+    .top-actions { align-items: center; justify-self: end; }
+    .top-actions .outline-btn, .top-actions .primary-btn {
+      border-color: transparent; background: transparent; box-shadow: none;
+    }
+    .top-actions .outline-btn:hover, .top-actions .primary-btn:hover { background: var(--teal-soft); }
+    .top-actions .primary-btn { color: var(--teal-dark); }
+
+    main { max-width: 1580px; padding: 0 clamp(20px, 3vw, 46px) 48px; }
+    .kpis {
+      gap: 16px; margin: 22px 0 0; padding: 0; border-bottom: 0;
+      background: transparent;
+    }
+    .kpi {
+      min-height: 132px; padding: 20px; border: 1px solid var(--line-translucent);
+      border-radius: var(--radius); box-shadow: 0 0 4px rgba(10, 27, 46, .05), 0 2px 10px rgba(10, 27, 46, .04);
+    }
+    .kpi:first-child { padding-left: 20px; }
+    .kpi:last-child { border-right: 1px solid var(--line-translucent); }
+    .kpi-label { color: #33474e; }
+    .kpi-icon { width: 40px; height: 40px; font-size: 15px; }
+    .kpi-value { margin-top: 12px; }
+
+    .visuals { grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(285px, .72fr)); gap: 18px; margin: 22px 0; }
+    .panel { border-radius: var(--radius); padding: 20px; box-shadow: 0 0 4px rgba(10, 27, 46, .05), 0 2px 10px rgba(10, 27, 46, .04); }
+    .panel-head { align-items: flex-start; margin-bottom: 18px; }
+    .panel-head h2 { font-size: 16px; }
+    .panel-subtitle { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .inline-filter { display: inline-flex; align-items: center; gap: 3px; padding: 3px; background: var(--surface-soft); border-radius: 7px; }
+    .filter-choice {
+      min-height: 30px; padding: 5px 10px; border: 0; border-radius: 7px; background: transparent;
+      color: #52656c; font-weight: 680; font-size: 12px; cursor: pointer;
+    }
+    .filter-choice:hover { color: var(--teal-dark); }
+    .filter-choice.active { background: white; color: var(--teal-dark); box-shadow: 0 1px 5px rgba(20, 55, 62, .12); }
+    .filter-choice.profit.active { color: var(--green); }
+    .filter-choice.loss.active { color: var(--red); }
+    .legend-button {
+      width: 100%; border: 0; background: transparent; padding: 5px 6px; border-radius: 7px;
+      display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center;
+      text-align: left; cursor: pointer;
+    }
+    .legend-button:hover { background: var(--surface-soft); }
+    .legend-button.active { background: var(--teal-soft); }
+    .legend-count { color: var(--ink) !important; font-weight: 780; }
+
+    @media (max-width: 1280px) and (min-width: 981px) {
+      .visuals { grid-template-columns: 1fr 1fr; }
+      .visuals .pnl-panel { grid-column: 1 / -1; }
+    }
+
+    .table-panel { overflow: visible; padding: 0; box-shadow: 0 8px 24px rgba(23, 52, 59, .035); }
+    .table-toolbar {
+      padding: 18px 20px 14px; border-bottom: 0; display: grid;
+      grid-template-columns: auto minmax(220px, 1fr) auto auto; gap: 12px; align-items: center;
+    }
+    .table-toolbar h2 { font-size: 20px; white-space: nowrap; }
+    .search-wrap { position: relative; min-width: 0; }
+    .search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    .search-input {
+      width: 100%; min-height: 40px; border: 1px solid var(--line-strong); border-radius: 7px;
+      background: white; padding: 8px 12px 8px 38px; color: var(--ink);
+    }
+    .search-input::placeholder { color: #87959a; }
+    .table-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .more-wrap { position: relative; }
+    .more-button {
+      min-height: 38px; border: 1px solid var(--line-strong); border-radius: 7px; background: white;
+      padding: 7px 11px; display: inline-flex; gap: 8px; align-items: center; color: #41545b;
+      font-weight: 680; cursor: pointer;
+    }
+    .more-button:hover, .more-button[aria-expanded="true"] { border-color: var(--teal); background: var(--teal-soft); color: var(--teal-dark); }
+    .filter-popover {
+      position: absolute; top: calc(100% + 8px); right: 0; width: 280px; padding: 16px;
+      background: white; border: 1px solid var(--line); border-radius: 12px;
+      box-shadow: var(--shadow); z-index: 30; display: none;
+    }
+    .filter-popover.open { display: grid; gap: 13px; }
+    .filter-popover label { display: grid; gap: 6px; font-size: 12px; color: #405158; font-weight: 700; }
+    .filter-popover .control { min-height: 39px; }
+    .clear-link { border: 0; background: transparent; color: var(--teal-dark); font-weight: 720; cursor: pointer; padding: 7px 3px; white-space: nowrap; }
+    .clear-link:hover { text-decoration: underline; }
+    .active-filter-row { min-height: 32px; padding: 0 20px 12px; display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .active-filter-row:empty { display: none; }
+    .active-token {
+      border: 0; border-radius: 999px; background: var(--teal-soft); color: var(--teal-dark);
+      padding: 5px 9px; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .active-token:hover { background: #d8ebeb; }
+    .result-summary { margin-left: auto; color: var(--muted); font-size: 12px; }
+    .table-scroll { border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); }
+    th { background: #f4f7f7; }
+
+    @media (max-width: 980px) {
+      .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .visuals { grid-template-columns: 1fr; }
+      .table-toolbar { grid-template-columns: 1fr 1fr; }
+      .table-toolbar h2 { grid-column: 1 / -1; }
+      .search-wrap { grid-column: 1 / -1; }
+    }
+    @media (max-width: 640px) {
+      .topbar { grid-template-columns: 1fr; justify-items: center; gap: 10px; padding-top: 12px; }
+      .altaj-logo { justify-self: center; width: 78px; height: 78px; }
+      .report-heading { width: 100%; }
+      .top-actions { justify-self: center; flex-direction: row; align-items: center; justify-content: center; }
+      .top-actions .print-label { display: inline; }
+      .kpis { grid-template-columns: 1fr; }
+      .kpi, .kpi:first-child { padding: 18px; border: 1px solid var(--line); }
+      .kpi:last-child { border: 1px solid var(--line); }
+      .table-toolbar { grid-template-columns: 1fr; }
+      .table-toolbar h2, .search-wrap { grid-column: auto; }
+      .table-filters { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 3px; }
+      .filter-popover { position: fixed; left: 14px; right: 14px; top: auto; bottom: 14px; width: auto; }
+      .category-wrap { grid-template-columns: 1fr; }
+    }
+    @media print {
+      .top-actions, .drawer, .drawer-backdrop, .table-filters, .search-wrap, .more-wrap, .active-filter-row, .brand-footer { display: none !important; }
+      .app { display: block; }
+      .topbar { position: static; }
+      main { padding: 18px 0; }
+      .panel, .kpi { break-inside: avoid; box-shadow: none; }
+      .table-scroll { overflow: visible; }
+      table { min-width: 0; font-size: 10px; }
+      th, td { padding: 7px 6px; }
+    }
+    .brand-footer {
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      max-width: 1680px; margin: 0 auto; padding: 30px clamp(20px,3vw,46px) 30px;
+      color: var(--muted); font-size: 11.5px; font-weight: 500; letter-spacing: .03em; opacity: .8;
+    }
+    .brand-footer svg { width: 15px; height: 15px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="content">
+      <header class="topbar">
+        <div class="altaj-logo">
+          <img class="logo-image" src="@@LOGO_SRC@@" alt="AL-TAJ logo">
+        </div>
+        <div class="report-heading">
+          <h1>@@MONTH_TITLE@@ Sales Report</h1>
+          <p>Travel sales performance</p>
+          <button class="period-button" type="button" title="Reporting period">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 2v4m12-4v4M3 9h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2z"/></svg>
+            @@PERIOD_LABEL@@
+          </button>
+        </div>
+        <div class="top-actions">
+          <button class="outline-btn" id="printReport" type="button" title="Print report">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>
+            <span class="print-label">Print</span>
+          </button>
+          <button class="primary-btn" id="exportCsv" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>
+            Export CSV
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="kpis" aria-label="Financial summary">
+          <article class="kpi"><div class="kpi-label"><span>Sales</span><span class="kpi-icon">&#8377;</span></div><div class="kpi-value" id="salesKpi">&mdash;</div><div class="kpi-note" id="salesNote">Customer invoice value</div></article>
+          <article class="kpi"><div class="kpi-label"><span>Supplier Cost</span><span class="kpi-icon">&#8601;</span></div><div class="kpi-value" id="costKpi">&mdash;</div><div class="kpi-note">Reconciled source cost</div></article>
+          <article class="kpi"><div class="kpi-label"><span>Net Profit</span><span class="kpi-icon">&#8599;</span></div><div class="kpi-value" id="profitKpi">&mdash;</div><div class="kpi-note" id="profitNote">Profit after supplier cost</div></article>
+          <article class="kpi"><div class="kpi-label"><span>Margin</span><span class="kpi-icon">%</span></div><div class="kpi-value" id="marginKpi">&mdash;</div><div class="kpi-note">Net profit &divide; sales</div></article>
+        </section>
+
+        <section class="visuals" aria-label="Performance charts">
+          <article class="panel pnl-panel">
+            <div class="panel-head">
+              <div><h2>Profit vs Loss</h2><div class="panel-subtitle">Net result by transaction &middot; INR</div></div>
+              <div class="inline-filter" aria-label="Filter by profit outcome">
+                <button class="filter-choice" type="button" data-filter-key="outcome" data-filter-value="all">All</button>
+                <button class="filter-choice profit" type="button" data-filter-key="outcome" data-filter-value="profit">Profit</button>
+                <button class="filter-choice loss" type="button" data-filter-key="outcome" data-filter-value="loss">Loss</button>
+              </div>
+            </div>
+            <div class="pnl-chart" id="pnlChart"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <div><h2>Sales by Category</h2><div class="panel-subtitle" id="categoryCaption">All transactions</div></div>
+              <div class="inline-filter" aria-label="Filter by transaction type">
+                <button class="filter-choice" type="button" data-filter-key="type" data-filter-value="all">All</button>
+                <button class="filter-choice" type="button" data-filter-key="type" data-filter-value="Flight">Flight</button>
+                <button class="filter-choice" type="button" data-filter-key="type" data-filter-value="Hotel">Hotel</button>
+              </div>
+            </div>
+            <div class="category-wrap">
+              <div class="donut" id="categoryDonut"><div class="donut-center"><div id="donutTotal">&mdash;<small>filtered sales</small></div></div></div>
+              <div class="legend" id="categoryLegend"></div>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <div><h2>Total Transactions</h2><div class="panel-subtitle" id="transactionCaption">0 bookings</div></div>
+            </div>
+            <div class="category-wrap">
+              <div class="donut" id="transactionDonut"><div class="donut-center"><div id="transactionTotal">0<small>transactions</small></div></div></div>
+              <div class="legend" id="transactionLegend"></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="panel table-panel" aria-labelledby="tableTitle">
+          <div class="table-toolbar">
+            <h2 id="tableTitle">Transactions</h2>
+            <label class="search-wrap" for="search">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg>
+              <input class="search-input" id="search" type="search" placeholder="Search transactions, customers, routes&hellip;">
+            </label>
+            <div class="table-filters" aria-label="Quick transaction filters">
+              <div class="inline-filter" aria-label="Transaction type">
+                <button class="filter-choice" type="button" data-filter-key="type" data-filter-value="all">All</button>
+                <button class="filter-choice" type="button" data-filter-key="type" data-filter-value="Flight">Flight</button>
+                <button class="filter-choice" type="button" data-filter-key="type" data-filter-value="Hotel">Hotel</button>
+              </div>
+              <div class="inline-filter" aria-label="Profit outcome">
+                <button class="filter-choice" type="button" data-filter-key="outcome" data-filter-value="all">All</button>
+                <button class="filter-choice profit" type="button" data-filter-key="outcome" data-filter-value="profit">Profit</button>
+                <button class="filter-choice loss" type="button" data-filter-key="outcome" data-filter-value="loss">Loss</button>
+              </div>
+            </div>
+            <div class="more-wrap">
+              <button class="more-button" id="moreFilters" type="button" aria-controls="filterPopover" aria-expanded="false">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z"/></svg>
+                More
+              </button>
+              <div class="filter-popover" id="filterPopover">
+                <label for="transactionFilter">Transaction<select class="control" id="transactionFilter"><option value="all">All transactions</option></select></label>
+                <label for="segmentFilter">Booking segment<select class="control" id="segmentFilter"><option value="all">All segments</option><option value="Corporate">Corporate</option><option value="Individual">Individual</option><option value="Group">Group</option><option value="Internal">Internal</option></select></label>
+              </div>
+            </div>
+          </div>
+          <div class="active-filter-row" id="activeFilters"></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                <th><button data-sort="id">Transaction &#8597;</button></th>
+                <th><button data-sort="type">Type &#8597;</button></th>
+                <th><button data-sort="description">Route / Property &#8597;</button></th>
+                <th><button data-sort="customer">Customer &#8597;</button></th>
+                <th style="text-align:right"><button data-sort="sale">Sales &#8597;</button></th>
+                <th style="text-align:right"><button data-sort="cost">Cost &#8597;</button></th>
+                <th style="text-align:right"><button data-sort="profit">Net P/L &#8597;</button></th>
+                <th style="text-align:right"><button data-sort="margin">Margin &#8597;</button></th>
+                <th>Payment</th>
+              </tr></thead>
+              <tbody id="transactionRows"></tbody>
+              <tfoot id="tableFoot"></tfoot>
+            </table>
+          </div>
+        </section>
+
+        <div class="note-bar"><strong>Accounting basis:</strong><span>@@NOTE_TEXT@@</span></div>
+      </main>
+    </div>
+  </div>
+
+  <p class="brand-footer">
+    <svg viewBox="0 0 64 64" role="img" aria-label="Improve Software Labs">
+      <defs>
+        <linearGradient id="improvePurple" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#dc9bff"/>
+          <stop offset="0.48" stop-color="#7e44c7"/>
+          <stop offset="1" stop-color="#442178"/>
+        </linearGradient>
+      </defs>
+      <path d="M32 3 58 18v28L32 61 6 46V18L32 3Z" fill="url(#improvePurple)"/>
+      <path d="M32 3v58L6 46V18L32 3Z" fill="#ffffff" opacity=".18"/>
+      <path d="M58 18 32 32 32 3 58 18Z" fill="#ffffff" opacity=".16"/>
+      <path d="M6 18 32 32 6 46V18Z" fill="#0e1010" opacity=".14"/>
+      <path d="M26 19h12v30H26v-6h3V25h-3v-6Z" fill="#ffffff"/>
+      <path d="M20 25 13 32l7 7 3-4-3-3 3-3-3-4Zm24 0-3 4 3 3-3 3 3 4 7-7-7-7Z" fill="#e7d8ff" opacity=".9"/>
+    </svg>
+    <span>Solution By &copy; IMprove Software Labs</span>
+  </p>
+
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="detailDrawer" aria-hidden="true" aria-label="Transaction details">
+    <div class="drawer-head"><div><h2 id="detailTitle">Transaction</h2><p id="detailSubtitle"></p></div><button class="close-btn" id="closeDrawer" type="button" aria-label="Close details">&times;</button></div>
+    <div id="detailBody"></div>
+  </aside>
+
+  <script>
+    const transactions = (@@TX_JSON@@).map(tx => ({
+      ...tx,
+      segment: bookingSegment(tx),
+      profit: +(((tx.sale||0) - (tx.cost||0))).toFixed(2),
+      margin: tx.sale ? (((tx.sale||0) - (tx.cost||0)) / tx.sale) * 100 : 0
+    }));
+    function bookingSegment(tx) {
+      if (tx.classification === "Client" || tx.classification === "Corporate") return "Corporate";
+      if (tx.classification === "Internal") return "Internal";
+      if (tx.classification === "Group") return "Group";
+      if (/party|group/i.test(`${tx.customer || ""} ${tx.note || ""}`)) return "Group";
+      return "Individual";
+    }
+
+    const state = { search: "", transaction: "all", type: "all", segment: "all", outcome: "all", sortKey: "issueDate", sortDir: 1, selected: null };
+    const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const compactMoney = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", notation: "compact", maximumFractionDigits: 2 });
+    const dateFmt = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    function safeDate(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso + "T00:00:00");
+      return isNaN(d) ? "—" : dateFmt.format(d);
+    }
+    const els = Object.fromEntries(["search","transactionFilter","segmentFilter","activeFilters","moreFilters","filterPopover","salesKpi","costKpi","profitKpi","marginKpi","profitNote","salesNote","pnlChart","categoryDonut","donutTotal","categoryLegend","categoryCaption","transactionDonut","transactionTotal","transactionLegend","transactionCaption","transactionRows","tableFoot","detailDrawer","drawerBackdrop","detailTitle","detailSubtitle","detailBody"].map(id => [id, document.getElementById(id)]));
+
+    function outcome(tx) { return tx.profit > .004 ? "profit" : tx.profit < -.004 ? "loss" : "break-even"; }
+    function filtered() {
+      const q = state.search.trim().toLowerCase();
+      return transactions.filter(tx => {
+        const haystack = [tx.id, tx.description, tx.customer, tx.segment, tx.ref, tx.note].join(" ").toLowerCase();
+        return (!q || haystack.includes(q)) &&
+          (state.transaction === "all" || tx.id === state.transaction) &&
+          (state.type === "all" || tx.type === state.type) &&
+          (state.segment === "all" || tx.segment === state.segment) &&
+          (state.outcome === "all" || outcome(tx) === state.outcome);
+      }).sort((a, b) => {
+        let av = state.sortKey === "margin" ? a.margin : a[state.sortKey];
+        let bv = state.sortKey === "margin" ? b.margin : b[state.sortKey];
+        if (typeof av === "string") return av.localeCompare(bv) * state.sortDir;
+        return ((av||0) - (bv||0)) * state.sortDir;
+      });
+    }
+    function totals(data) {
+      const sale = data.reduce((sum, tx) => sum + tx.sale, 0);
+      const cost = data.reduce((sum, tx) => sum + tx.cost, 0);
+      const profit = sale - cost;
+      return { sale, cost, profit, margin: sale ? profit / sale * 100 : 0 };
+    }
+    function toneClass(value) { return value > .004 ? "positive" : value < -.004 ? "negative" : "neutral"; }
+    function formatPct(value) { return `${value.toFixed(2)}%`; }
+    function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c])); }
+
+    function renderControls(data) {
+      document.querySelectorAll(".filter-choice[data-filter-key]").forEach(button => {
+        const active = state[button.dataset.filterKey] === button.dataset.filterValue;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      els.transactionFilter.value = state.transaction;
+      els.segmentFilter.value = state.segment;
+      const tokens = [];
+      if (state.search) tokens.push(["search", `Search: ${state.search}`]);
+      if (state.transaction !== "all") tokens.push(["transaction", state.transaction]);
+      if (state.type !== "all") tokens.push(["type", state.type]);
+      if (state.segment !== "all") tokens.push(["segment", state.segment]);
+      if (state.outcome !== "all") tokens.push(["outcome", state.outcome === "break-even" ? "Break-even" : state.outcome[0].toUpperCase() + state.outcome.slice(1)]);
+      els.activeFilters.innerHTML = tokens.map(([key, label]) => `<button class="active-token" type="button" data-clear-filter="${key}" aria-label="Remove ${escapeHtml(label)} filter">${escapeHtml(label)} ×</button>`).join("") +
+        (tokens.length ? `<button class="clear-link" id="clearAllInline" type="button">Clear all</button>` : "") +
+        `<span class="result-summary">${data.length} of ${transactions.length} transactions</span>`;
+      els.activeFilters.querySelectorAll("[data-clear-filter]").forEach(button => button.addEventListener("click", () => {
+        const key = button.dataset.clearFilter;
+        state[key] = key === "search" ? "" : "all";
+        if (key === "search") els.search.value = "";
+        render();
+      }));
+      document.getElementById("clearAllInline")?.addEventListener("click", resetFilters);
+    }
+
+    function renderKpis(data) {
+      const t = totals(data);
+      els.salesKpi.textContent = money.format(t.sale);
+      els.costKpi.textContent = money.format(t.cost);
+      els.profitKpi.textContent = money.format(t.profit);
+      els.profitKpi.className = `kpi-value ${toneClass(t.profit)}`;
+      els.marginKpi.textContent = formatPct(t.margin);
+      els.marginKpi.className = `kpi-value ${toneClass(t.margin)}`;
+      els.profitNote.textContent = `${data.filter(tx => tx.profit > .004).length} profitable · ${data.filter(tx => tx.profit < -.004).length} loss · ${data.filter(tx => Math.abs(tx.profit) <= .004).length} break-even`;
+      els.salesNote.textContent = data.length === transactions.length ? "All transactions" : `${data.length} filtered transactions`;
+    }
+    function renderPnl(data) {
+      if (!data.length) { els.pnlChart.innerHTML = '<div class="empty">No transactions match the filters.</div>'; return; }
+      const max = Math.max(...data.map(tx => Math.abs(tx.profit)), 1);
+      els.pnlChart.innerHTML = [...data].sort((a,b) => b.profit - a.profit).map(tx => {
+        const width = Math.max(1, Math.abs(tx.profit) / max * 49);
+        const kind = tx.profit >= 0 ? "profit" : "loss";
+        return `<div class="pnl-row" title="${escapeHtml(tx.id)}: ${money.format(tx.profit)}"><div class="pnl-label">${escapeHtml(tx.id)}</div><div class="pnl-track"><div class="pnl-bar ${kind}" style="width:${width}%"></div></div><div class="pnl-number ${toneClass(tx.profit)}">${money.format(tx.profit)}</div></div>`;
+      }).join("");
+    }
+    function renderCategory(data) {
+      const t = totals(data);
+      const flight = data.filter(tx => tx.type === "Flight").reduce((s, tx) => s + tx.sale, 0);
+      const hotel = t.sale - flight;
+      const share = t.sale ? flight / t.sale * 100 : 0;
+      els.categoryDonut.style.setProperty("--flight-share", `${share}%`);
+      els.donutTotal.innerHTML = `${compactMoney.format(t.sale)}<small>filtered sales</small>`;
+      els.categoryCaption.textContent = `${data.length} transaction${data.length === 1 ? "" : "s"}`;
+      els.categoryLegend.innerHTML = [
+        ["Flight", flight, "var(--teal)"], ["Hotel", hotel, "#0057d9"]
+      ].map(([name, value, color]) => `<button class="legend-button" type="button" data-legend-type="${name}" aria-label="Filter to ${name} transactions"><i class="swatch" style="background:${color}"></i><strong>${name}</strong><span>${money.format(value)} · ${t.sale ? (value/t.sale*100).toFixed(1) : "0.0"}%</span></button>`).join("");
+      els.categoryLegend.querySelectorAll("[data-legend-type]").forEach(button => button.addEventListener("click", () => {
+        state.type = state.type === button.dataset.legendType ? "all" : button.dataset.legendType;
+        render();
+      }));
+    }
+    function renderTransactionCount(data) {
+      const segments = [
+        { name: "Corporate", color: "#17d6c6" },
+        { name: "Individual", color: "#0b4653" },
+        { name: "Group", color: "#0057d9" },
+        { name: "Internal", color: "#7f9299" }
+      ].map(segment => ({ ...segment, count: data.filter(tx => tx.segment === segment.name).length }));
+      const total = data.length;
+      let cursor = 0;
+      const stops = segments.map(segment => {
+        const start = cursor;
+        cursor += total ? segment.count / total * 360 : 0;
+        return `${segment.color} ${start}deg ${cursor}deg`;
+      });
+      els.transactionDonut.style.background = total ? `conic-gradient(${stops.join(",")})` : "#e8eeee";
+      els.transactionTotal.innerHTML = `${total}<small>transactions</small>`;
+      els.transactionCaption.textContent = `${total} booking${total === 1 ? "" : "s"}`;
+      els.transactionLegend.innerHTML = segments.map(segment => `<button class="legend-button ${state.segment === segment.name ? "active" : ""}" type="button" data-booking-segment="${segment.name}" aria-label="Filter to ${segment.name} bookings"><i class="swatch" style="background:${segment.color}"></i><strong>${segment.name}</strong><span class="legend-count">${segment.count}</span></button>`).join("");
+      els.transactionLegend.querySelectorAll("[data-booking-segment]").forEach(button => button.addEventListener("click", () => {
+        state.segment = state.segment === button.dataset.bookingSegment ? "all" : button.dataset.bookingSegment;
+        render();
+      }));
+    }
+    function renderTable(data) {
+      if (!data.length) {
+        els.transactionRows.innerHTML = '<tr><td class="empty" colspan="9">No transactions match the current filters.</td></tr>';
+        els.tableFoot.innerHTML = ""; return;
+      }
+      els.transactionRows.innerHTML = data.map(tx => `<tr data-id="${escapeHtml(tx.id)}" tabindex="0" class="${state.selected === tx.id ? "selected" : ""}">
+        <td><div class="tx-name">${escapeHtml(tx.id)}</div><div class="type-label">${safeDate(tx.issueDate)}</div></td>
+        <td>${tx.type}</td><td>${escapeHtml(tx.description)}</td><td>${escapeHtml(tx.customer)}</td>
+        <td class="numeric">${money.format(tx.sale)}</td><td class="numeric">${money.format(tx.cost)}</td>
+        <td class="numeric ${toneClass(tx.profit)}"><strong>${money.format(tx.profit)}</strong></td>
+        <td class="numeric ${toneClass(tx.margin)}">${formatPct(tx.margin)}</td>
+        <td><span class="status ${tx.classification === "Internal" ? "internal" : ""}">${tx.classification === "Internal" ? "Paid · Internal" : tx.payment}</span></td></tr>`).join("");
+      const t = totals(data);
+      els.tableFoot.innerHTML = `<tr><td colspan="4">Filtered total</td><td class="numeric">${money.format(t.sale)}</td><td class="numeric">${money.format(t.cost)}</td><td class="numeric ${toneClass(t.profit)}">${money.format(t.profit)}</td><td class="numeric ${toneClass(t.margin)}">${formatPct(t.margin)}</td><td>${data.length} rows</td></tr>`;
+      els.transactionRows.querySelectorAll("tr[data-id]").forEach(row => {
+        const open = () => showDetail(row.dataset.id);
+        row.addEventListener("click", open);
+        row.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+      });
+    }
+    function render() {
+      const data = filtered();
+      renderControls(data); renderKpis(data); renderPnl(data); renderCategory(data); renderTransactionCount(data); renderTable(data);
+    }
+    function showDetail(id) {
+      const tx = transactions.find(item => item.id === id); if (!tx) return;
+      state.selected = id; renderTable(filtered());
+      els.detailTitle.textContent = tx.id;
+      els.detailSubtitle.textContent = `${tx.type} · ${tx.segment} · ${tx.payment}`;
+      els.detailBody.innerHTML = `<section class="detail-section"><h3>Transaction</h3><div class="detail-grid">
+        <div class="detail-row"><span>Route / Property</span><strong>${escapeHtml(tx.description)}</strong></div>
+        <div class="detail-row"><span>Customer</span><strong>${escapeHtml(tx.customer)}</strong></div>
+        <div class="detail-row"><span>Booking segment</span><strong>${escapeHtml(tx.segment)}</strong></div>
+        <div class="detail-row"><span>Issue date</span><strong>${safeDate(tx.issueDate)}</strong></div>
+        <div class="detail-row"><span>Reference</span><strong>${escapeHtml(tx.ref)}</strong></div>
+        <div class="detail-row"><span>Details</span><strong>${escapeHtml(tx.detail)}</strong></div></div></section>
+        <section class="detail-section"><h3>Financials</h3><div class="detail-grid">
+        <div class="detail-row"><span>Sales</span><strong>${money.format(tx.sale)}</strong></div>
+        <div class="detail-row"><span>Supplier cost</span><strong>${money.format(tx.cost)}</strong></div>
+        <div class="detail-row"><span>Net P/L</span><strong class="${toneClass(tx.profit)}">${money.format(tx.profit)}</strong></div>
+        <div class="detail-row"><span>Margin</span><strong class="${toneClass(tx.margin)}">${formatPct(tx.margin)}</strong></div></div></section>
+        <section class="detail-section"><h3>Accounting note</h3><div class="detail-note">${escapeHtml(tx.note)}</div></section>`;
+      els.detailDrawer.classList.add("open"); els.drawerBackdrop.classList.add("open"); els.detailDrawer.setAttribute("aria-hidden", "false");
+      setTimeout(() => document.getElementById("closeDrawer").focus(), 50);
+    }
+    function closeDetail() {
+      state.selected = null; els.detailDrawer.classList.remove("open"); els.drawerBackdrop.classList.remove("open"); els.detailDrawer.setAttribute("aria-hidden", "true"); renderTable(filtered());
+    }
+    function exportCsv() {
+      const data = filtered();
+      const rows = [["Transaction","Type","Description","Customer","Booking Segment","Issue Date","Sales INR","Supplier Cost INR","Net P/L INR","Margin %","Payment","Reference","Note"], ...data.map(tx => [tx.id,tx.type,tx.description,tx.customer,tx.segment,tx.issueDate,tx.sale.toFixed(2),tx.cost.toFixed(2),tx.profit.toFixed(2),tx.margin.toFixed(2),tx.payment,tx.ref,tx.note])];
+      const csv = rows.map(row => row.map(value => { const v=String(value); return /[",\n]/.test(v) ? `"${v.replaceAll('"','""')}"` : v; }).join(",")).join("\r\n");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href=url; a.download="@@CSV_NAME@@"; a.click(); URL.revokeObjectURL(url);
+    }
+
+    function resetFilters() {
+      Object.assign(state, { search:"", transaction:"all", type:"all", segment:"all", outcome:"all" });
+      els.search.value = "";
+      els.transactionFilter.value = "all";
+      els.segmentFilter.value = "all";
+      render();
+    }
+
+    transactions.forEach(tx => { const option=document.createElement("option"); option.value=tx.id; option.textContent=tx.id; els.transactionFilter.appendChild(option); });
+    [["search","input","search"],["transactionFilter","change","transaction"],["segmentFilter","change","segment"]].forEach(([id,event,key]) => document.getElementById(id).addEventListener(event, e => { state[key]=e.target.value; render(); }));
+    document.querySelectorAll(".filter-choice[data-filter-key]").forEach(button => button.addEventListener("click", () => {
+      state[button.dataset.filterKey] = button.dataset.filterValue;
+      render();
+    }));
+    document.querySelectorAll("th button[data-sort]").forEach(button => button.addEventListener("click", () => { const key=button.dataset.sort; state.sortDir=state.sortKey===key ? -state.sortDir : 1; state.sortKey=key; render(); }));
+    els.moreFilters.addEventListener("click", () => {
+      const open = els.filterPopover.classList.toggle("open");
+      els.moreFilters.setAttribute("aria-expanded", String(open));
+    });
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".more-wrap")) { els.filterPopover.classList.remove("open"); els.moreFilters.setAttribute("aria-expanded", "false"); }
+    });
+    document.getElementById("closeDrawer").addEventListener("click", closeDetail); els.drawerBackdrop.addEventListener("click", closeDetail); document.addEventListener("keydown", e => {
+      if(e.key === "Escape") { closeDetail(); els.filterPopover.classList.remove("open"); els.moreFilters.setAttribute("aria-expanded", "false"); }
+    });
+    document.getElementById("exportCsv").addEventListener("click", exportCsv); document.getElementById("printReport").addEventListener("click", () => window.print());
+    render();
+  @@ENDSCRIPT@@
+</body>
+</html>
+</script>
+
+<script type="module">
+// pdf.js is loaded lazily (not as a static top-level import) so that a CDN/network
+// failure only breaks PDF extraction later, instead of silently killing this entire
+// module — a static import failing here would prevent every button below from ever
+// being wired up, with no visible error.
+let pdfjsLib = null;
+let pdfjsLoadError = null;
+async function ensurePdfJs() {
+  if (pdfjsLib || pdfjsLoadError) return;
+  try {
+    pdfjsLib = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.1.200/pdf.min.mjs");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.1.200/pdf.worker.min.mjs";
+  } catch (err) {
+    pdfjsLoadError = err;
+  }
+}
+
+// Tesseract.js is a plain UMD bundle (no ESM build), so it's loaded via an injected
+// <script> tag rather than dynamic import — same lazy-on-first-use approach as pdf.js,
+// but only triggered once a page actually turns out to have no text layer, since the
+// engine + language data is several MB and most invoices never need it.
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Couldn't load ${src} from the CDN.`));
+    document.head.appendChild(script);
+  });
+}
+let ocrWorker = null;
+let ocrWorkerError = null;
+async function ensureOcrWorker() {
+  if (ocrWorker || ocrWorkerError) return;
+  try {
+    await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/7.0.0/tesseract.min.js");
+    ocrWorker = await window.Tesseract.createWorker("eng");
+  } catch (err) {
+    ocrWorkerError = err;
+  }
+}
+async function terminateOcrWorker() {
+  if (ocrWorker) {
+    const worker = ocrWorker;
+    ocrWorker = null;
+    await worker.terminate().catch(() => {});
+  }
+}
+// Renders a scanned/image-only PDF page to a canvas and OCRs it — the fallback for
+// pages where getTextContent() comes back empty because there's no real text layer.
+async function ocrPage(page) {
+  const viewport = page.getViewport({ scale: 2.2 });
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+  const { data } = await ocrWorker.recognize(canvas);
+  return (data.text || "").trim();
+}
+
+window.addEventListener("error", (e) => showFatalError(e.error || e.message));
+window.addEventListener("unhandledrejection", (e) => showFatalError(e.reason));
+function showFatalError(err) {
+  const banner = document.getElementById("setupBanner");
+  if (!banner) return;
+  banner.hidden = false;
+  banner.innerHTML += `<div>${escapeHtml(friendlyErrorMessage(err, "window"))}</div>`;
+}
+
+const state = {
+  month: "",
+  folders: { source: [], raised: [], paid: [] },
+  docs: { source: [], raised: [], paid: [] },
+  transactions: [],
+  discrepancies: [],
+  logoDataUrl: null,
+  lastReportHtml: "",
+  tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, calls: 0 },
+  tokenLog: []
+};
+const processingState = { startedAt: 0, timerId: null, activeRequests: 0, currentStage: "Waiting" };
+
+function resetTokenUsage() {
+  state.tokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0, calls: 0 };
+  state.tokenLog = [];
+  renderTokenMeter();
+  renderProcessingStats();
+}
+function renderTokenMeter() {
+  const meter = document.getElementById("tokenMeter");
+  const text = document.getElementById("tokenMeterText");
+  if (!meter || !text) return;
+  const u = state.tokenUsage;
+  if (!u.calls) { meter.hidden = true; return; }
+  meter.hidden = false;
+  text.textContent = `${u.totalTokens.toLocaleString()} tokens · ${u.calls} call${u.calls === 1 ? "" : "s"}`;
+  meter.title = `${u.calls} AI call${u.calls === 1 ? "" : "s"} this month · ${u.promptTokens.toLocaleString()} in / ${u.completionTokens.toLocaleString()} out`;
+}
+function setTokenMeterBusy(busy) {
+  document.getElementById("tokenMeter")?.classList.toggle("busy", !!busy);
+}
+// Records usage from a single Groq response (OpenAI-compatible usage block), updates the
+// running total shown in the topbar meter, and logs the call so a resumed month keeps its
+// cumulative token history instead of resetting to zero.
+function recordTokenUsage(usage, label) {
+  const prompt = usage?.prompt_tokens || 0;
+  const completion = usage?.completion_tokens || 0;
+  const total = usage?.total_tokens || (prompt + completion);
+  state.tokenUsage.promptTokens += prompt;
+  state.tokenUsage.completionTokens += completion;
+  state.tokenUsage.totalTokens += total;
+  state.tokenUsage.calls += 1;
+  state.tokenLog.push({ label, prompt, completion, total, at: new Date().toISOString() });
+  renderTokenMeter();
+  renderProcessingStats();
+  return { prompt, completion, total };
+}
+
+function formatElapsed(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours) return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function renderProcessingStats() {
+  const elapsedEl = document.getElementById("processingElapsed");
+  const callsEl = document.getElementById("processingCalls");
+  const tokensEl = document.getElementById("processingTokens");
+  const stageEl = document.getElementById("processingStage");
+  if (!elapsedEl || !callsEl || !tokensEl || !stageEl) return;
+  elapsedEl.textContent = formatElapsed(processingState.startedAt ? Date.now() - processingState.startedAt : 0);
+  callsEl.textContent = state.tokenUsage.calls.toLocaleString();
+  tokensEl.textContent = state.tokenUsage.totalTokens.toLocaleString();
+  stageEl.textContent = processingState.activeRequests > 0 ? `${processingState.currentStage} · ${processingState.activeRequests} active` : processingState.currentStage;
+}
+
+function startProcessingClock() {
+  stopProcessingClock();
+  processingState.startedAt = Date.now();
+  renderProcessingStats();
+  processingState.timerId = window.setInterval(renderProcessingStats, 1000);
+}
+
+function stopProcessingClock() {
+  if (processingState.timerId) {
+    clearInterval(processingState.timerId);
+    processingState.timerId = null;
+  }
+}
+
+function setProcessingStage(label) {
+  processingState.currentStage = label;
+  renderProcessingStats();
+}
+
+const apiKeyInput = document.getElementById("apiKeyInput");
+const monthInput = document.getElementById("monthInput");
+const beginBtn = document.getElementById("beginBtn");
+const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c])); }
+function slugify(text) { return String(text || "report").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "report"; }
+function toneClass(value) { return value == null ? "" : value > 0.004 ? "positive" : value < -0.004 ? "negative" : "neutral"; }
+const TERMINAL_DISCREPANCY_STATUSES = ["Resolved", "Accepted", "Excluded"];
+function isDiscrepancyOpen(d) { return !TERMINAL_DISCREPANCY_STATUSES.includes(d.status); }
+function maskKey(key) {
+  if (!key) return "";
+  if (key.length <= 8) return "•".repeat(key.length);
+  return key.slice(0, 4) + "•".repeat(Math.max(4, key.length - 8)) + key.slice(-4);
+}
+
+function getSelectedModel() {
+  const sel = document.getElementById("modelSelect").value;
+  if (sel === "__custom__") return document.getElementById("customModelInput").value.trim();
+  return sel;
+}
+
+// A page with a real text layer yields far more than a few characters; anything under
+// this is treated as "no usable text" (scanned/photographed page) and sent to OCR instead.
+const MIN_PAGE_TEXT_LENGTH = 8;
+
+async function extractPdfText(file, name) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = "";
+  let ocrUsed = false;
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    let pageText = content.items.map(it => it.str).join(" ").trim();
+    if (pageText.length < MIN_PAGE_TEXT_LENGTH) {
+      await ensureOcrWorker();
+      if (ocrWorker) {
+        logStatus(`${name}: page ${i} has no text layer — running OCR (this can take a few seconds)…`);
+        pageText = await ocrPage(page);
+        ocrUsed = true;
+      } else {
+        logStatus(`${name}: page ${i} has no text layer and OCR couldn't load (${ocrWorkerError?.message || "unknown error"}) — this page will be treated as blank.`);
+      }
+    }
+    text += pageText + "\n";
+  }
+  if (ocrUsed) logStatus(`${name}: recovered text via OCR.`);
+  return text.trim();
+}
+
+async function extractAllText() {
+  await ensurePdfJs();
+  if (!pdfjsLib) {
+    throw new Error(`Couldn't load the PDF reader from the CDN (${pdfjsLoadError?.message || "unknown network error"}). Check your internet connection or a firewall/ad-blocker blocking cdnjs.cloudflare.com, then retry.`);
+  }
+  try {
+    for (const kind of ["source", "raised", "paid"]) {
+      state.docs[kind] = [];
+      for (const { name, file } of state.folders[kind]) {
+        logStatus(`Reading ${name}…`);
+        try {
+          const text = await extractPdfText(file, name);
+          state.docs[kind].push({ name, text });
+        } catch (err) {
+          logStatus(`Couldn't read ${name} (${friendlyErrorMessage(err, `extract ${name}`)}) — it will be treated as unmatched.`);
+          state.docs[kind].push({ name, text: "" });
+        }
+      }
+    }
+  } finally {
+    await terminateOcrWorker();
+  }
+}
+
+// Every document from all three folders is flattened into one table, tagged with a
+// stable id (folder:name) — no pre-grouping by filename happens here. Matching across
+// Source/Raised/Paid is left entirely to the LLM during the extraction+reconciliation
+// steps below, using whatever signal actually lines up (reference/booking id,
+// description, date, amount, filename), not a client-side filename heuristic.
+function flattenDocs(sourceDocs, raisedDocs, paidDocs) {
+  const tag = (folder) => (d) => ({ id: `${folder}:${d.name}`, folder, name: d.name, text: d.text });
+  return [
+    ...sourceDocs.map(tag("source")),
+    ...raisedDocs.map(tag("raised")),
+    ...paidDocs.map(tag("paid"))
+  ];
+}
+
+function chunkDocs(docs, maxChars = 15000) {
+  const chunks = [];
+  let current = [];
+  let currentSize = 0;
+  for (const doc of docs) {
+    const size = JSON.stringify(doc).length;
+    if (currentSize + size > maxChars && current.length) {
+      chunks.push(current);
+      current = [];
+      currentSize = 0;
+    }
+    current.push(doc);
+    currentSize += size;
+  }
+  if (current.length) chunks.push(current);
+  return chunks.length ? chunks : [current];
+}
+
+// The reconciliation step needs every related document visible in the same batch to have
+// any chance of matching them — sending each document's full raw text (needed during
+// extraction) would make that batch just as large as before and just as likely to get
+// split across multiple calls, silently separating a Source doc from its matching
+// Paid doc. So only a bounded excerpt goes to reconciliation; the extracted fields
+// (already derived from the complete text) carry the actual matching signal.
+const RECONCILE_TEXT_EXCERPT_CHARS = 1000;
+function toReconcileDoc(d) {
+  return {
+    folder: d.folder, name: d.name,
+    refId: d.refId, description: d.description, date: d.date, amount: d.amount,
+    currency: d.currency, party: d.party, travelerNames: d.travelerNames,
+    paymentConfirmed: d.paymentConfirmed,
+    textExcerpt: (d.text || "").slice(0, RECONCILE_TEXT_EXCERPT_CHARS)
+  };
+}
+
+// Structured-field extraction runs as its own pass, ahead of matching/reconciliation —
+// see DEVLOG.md (2026-07-24 entry) for why: pre-grouping documents by filename similarity
+// used to silently produce zero groups whenever the optional Raised folder was skipped,
+// so matching is now left entirely to the LLM, working off this tabulated data plus a
+// bounded text excerpt, rather than a client-side filename heuristic deciding it upfront.
+const EXTRACTION_SYSTEM_PROMPT = `You are pulling structured data out of scanned/extracted PDF text for AL-TAJ Travel & Tourism invoices, ahead of a separate reconciliation step. You are given a batch of documents, each already tagged with which folder it came from: Source Invoice (supplier/cost evidence), Raised Invoice (customer-facing proforma/raised invoice), or Paid Invoice (payment evidence).
+
+For each document, read its raw text and extract:
+- refId: the booking/reservation/invoice reference number as printed in the document, or null if none is present.
+- description: a short description of the product/service (e.g. a flight route, hotel/property name, or service booked), or null.
+- date: the document's own date (issue date, booking date, or payment date) as "YYYY-MM-DD", best-effort if the exact day is ambiguous, or null if genuinely no date is present.
+- amount: the single monetary amount this document is about (invoice total, cost, or amount paid), as a plain number with no currency symbol or thousands separators, or null if unclear.
+- currency: the ISO-ish currency code or symbol as it appears (e.g. "INR", "USD"), or null.
+- party: the billed/paying customer name on this document — the entity the invoice is addressed to or booked under (e.g. a company name for a corporate account, or an individual's name for a personal booking), or null.
+- travelerNames: the actual traveler(s)/passenger(s) named in the document (e.g. on a flight or hotel booking), ONLY if identifiable as distinct from "party" — the common case is a corporate account (party) traveled by a named employee (travelerNames), or a Source/cost document ticketed directly under a traveler's name with no company mentioned at all. Join multiple names with " & ". Null if there's no separately-identifiable traveler, or the traveler and party are the same name.
+- paymentConfirmed: for a document from the Paid Invoice folder only, true if its own text actually confirms/states payment was made (a receipt or payment confirmation), false if its text still reads as unpaid/proforma/pending despite being filed as Paid, or null for documents from Source/Raised folders (this field isn't meaningful there).
+
+Do not attempt to match or group documents together here — that happens in a later step. Just extract what each document's own text says, per document.
+
+Respond with strict JSON only, no prose before or after, matching exactly this shape:
+{ "documents": [ { "id": string, "refId": string|null, "description": string|null, "date": string|null, "amount": number|null, "currency": string|null, "party": string|null, "travelerNames": string|null, "paymentConfirmed": boolean|null } ] }
+Echo back the exact "id" given to you for each document — it's how the results get matched back up.`;
+
+const RECONCILE_SYSTEM_PROMPT = `You are an accounting reconciliation assistant for AL-TAJ Travel & Tourism. You are given a flat table of documents extracted from PDF invoices for one month, covering three categories: Source Invoice (supplier/cost evidence), Raised Invoice (customer-facing proforma/raised invoice), Paid Invoice (payment evidence).
+
+Each document includes fields already extracted from its own text in a prior pass (refId, description, date, amount, currency, party, travelerNames, and for Paid-folder documents only, paymentConfirmed) alongside a short excerpt of its opening raw text. The extracted fields are the primary source of truth (they were derived by reading the complete document), not the excerpt — the excerpt is only there so you can sanity-check a field that looks off, not to re-derive everything from scratch.
+
+Match documents into transactions yourself, the same way a human accountant reconciling by hand would. A transaction may be backed by documents from one, two, or all three folders. Every document you're given in this batch was tabulated from the same month's full folders — nothing has been pre-filtered out, so if two documents belong together, both are in front of you right now.
+
+Rank your matching signals from strongest to weakest, and do NOT require the strongest tier before acting on a weaker one that's still plausible — a lower-confidence match that gets flagged for the user is far better than leaving two documents as separate, incomplete transactions:
+1. A shared reference/booking id, or a matching filename pattern (e.g. the same date or route stamp appearing in both a Source and a Raised/Paid filename) — the strongest signal.
+2. A shared traveler name. A very common real pattern: a Source (cost) document is ticketed/booked directly under an individual traveler's name, while the Raised/Paid invoice for that exact same booking bills a corporate account (a company name) the traveler works for or travels on behalf of. Their "party" fields will legitimately disagree (an individual vs. a company) even though it's one transaction. Use travelerNames to bridge this: if one document's party or travelerNames matches another document's travelerNames, treat that as strong evidence they belong to the same transaction, not as a conflict.
+3. A matching description — the same flight route or hotel/property — between an otherwise-unmatched Source document and an otherwise-unmatched Raised/Paid document, with the same or a nearby date. This is a strong signal **on its own**: you do not need a shared reference id or traveler name on top of a clear route/property match to propose pairing them.
+4. Amount plausibility alone (same product type, same/nearby date, cost sensibly less than sale by a normal markup, nothing else to go on) — the weakest signal, use only when nothing stronger applies.
+
+Whenever you pair two documents using signal 2, 3, or 4 (anything short of a clear shared reference id or filename match), produce ONE merged transaction with both sale and cost filled in — never leave them as two separate incomplete transactions when a plausible pairing exists at all — but you MUST also add a discrepancy for that transaction: missingItem set to "Assumed match — please confirm", currentIssue stating plainly what did and didn't line up (e.g. "Matched by flight route MCT-DXB and date proximity; no shared reference or traveler name found between the Source and Raised documents."), status "Needs clarification", missingSide "Other". This is what actually shows the assumption to the user as something to accept or correct — do not rely on the transaction's note field for this, it is not a substitute and is not surfaced the same way.
+
+Only leave a document as its own separate, incomplete transaction (with a discrepancy explaining what's genuinely missing) when no plausible candidate exists anywhere in this batch to pair it with.
+
+For every transaction you identify:
+- Determine customer/booking party, product type (Flight, Hotel, or Other), a short description (route or property), issue date, sale amount (from Raised/Paid invoice), supplier cost (from Source invoice), currency, and payment status.
+- issueDate must always be a "YYYY-MM-DD" string. If the exact day is unclear, use the first day of the reported month as a best-effort fallback rather than leaving it null.
+- Payment status: a Raised/Proforma invoice is a request for payment, issued before payment happens — it will normally read as unpaid, pending, or proforma, and that is completely expected. Never flag a transaction just because its Raised invoice looks unpaid while a Paid invoice exists; that mismatch is the ordinary pattern, not a discrepancy.
+- The Paid Invoice document is the authoritative source for payment status: if a document from the Paid Invoice folder exists for this transaction and its own text (or its extracted paymentConfirmed field) confirms payment, set payment to "Paid" regardless of what the Raised/Source text says.
+- A Raised/Proforma invoice exists only so the sales team can confirm whether a payment was realized. If a Paid Invoice document exists for a transaction and confirms payment, a missing Raised Invoice for that same transaction is NOT a discrepancy — the proforma has already served its purpose whether or not one exists on file. Only ever raise a discrepancy about a missing Raised invoice when payment status is genuinely still unconfirmed for that transaction.
+- Only raise a payment-status discrepancy when the Paid Invoice document's own content is itself ambiguous or contradicts its own placement (e.g., a document filed as Paid whose text still says proforma/unpaid/pending with no actual confirmation anywhere), or when no Paid Invoice document exists for the transaction at all and payment status genuinely cannot be determined.
+- Classify the transaction: Corporate (business/client account), Individual, Group (party/group booking), or Internal (no external customer / no-profit booking).
+- The Raised Invoice category is optional and may be entirely empty for this month — that is expected, not an error. Never raise a discrepancy just because no Raised Invoice document exists anywhere for the month; derive the sale amount from whichever of Raised or Paid invoice is actually present.
+- If sale amount or supplier cost is missing or unclear, do not guess a number — leave it null and add a discrepancy instead.
+- This business reports in INR — every transaction's sale and cost must both end up expressed in INR, and the transaction's currency field should be "INR". If a document backing this transaction (a Source invoice especially) is in a different currency (e.g. AED, USD), a currency mismatch is NOT a reason to leave the amount null: convert it to INR yourself using your best available approximate exchange rate for that currency, and use the converted value. This conversion is never silent — always add a discrepancy for it: missingItem "Currency conversion — please confirm", currentIssue stating the original amount and currency, the approximate rate you used, and the converted INR result (e.g. "Source invoice is AED 2,323.00; converted at an approximate rate of ~1 AED = 22.7 INR = INR 52,732.10 — please confirm the rate or provide the correct INR amount"), status "Needs clarification", missingSide "Other". Exchange rates move day to day and your estimate may be stale, so this must always be confirmable, never applied invisibly.
+- Any document you cannot confidently place into a transaction should result in a discrepancy noting what's missing.
+- For every transaction, report exactly which document (by its filename) supplied each side: sourceDoc, raisedDoc, paidDoc. Use the exact filename if a document from that category was actually used for this transaction, or null if no document from that category exists for it. Be precise — the UI shows this directly to the user as the evidence trail for the number, so never invent a filename.
+- For every discrepancy, set missingSide to whichever single category is actually the gap: "Source", "Raised", or "Paid". Use "Multiple" only if more than one category is genuinely missing, or "Other" for problems that aren't about a missing document at all (e.g. two documents disagree on the amount).
+
+Respond with strict JSON only, no prose before or after, matching exactly this shape:
+{
+  "transactions": [
+    { "id": string, "type": "Flight"|"Hotel"|"Other", "description": string, "customer": string,
+      "classification": "Corporate"|"Individual"|"Group"|"Internal", "issueDate": string,
+      "sale": number|null, "cost": number|null, "currency": string, "payment": string,
+      "ref": string, "note": string, "detail": string,
+      "sourceDoc": string|null, "raisedDoc": string|null, "paidDoc": string|null }
+  ],
+  "discrepancies": [
+    { "transaction": string, "missingItem": string, "currentIssue": string,
+      "priority": "High"|"Medium"|"Low", "status": "Missing"|"Needs clarification",
+      "missingSide": "Source"|"Raised"|"Paid"|"Multiple"|"Other" }
+  ]
+}`;
+
+const INTERPRET_SYSTEM_PROMPT = `You are finalizing one AL-TAJ travel transaction after a human accounting clarification. Given the transaction's current data, the discrepancy that was flagged, and the user's comment resolving it, decide the final treatment.
+
+Accepted resolutions include: paid-status confirmation, accepting a voucher instead of a formal invoice, internal/no-profit booking treatment, a corrected supplier cost, a corrected customer sale amount, an approved exchange rate applied to convert to INR, refund/cancellation/penalty/reschedule handling, or confirmation that two similar transactions are genuinely separate.
+
+Use the clarified amount as authoritative. If the customer sale amount is still zero or unavailable, do not invent a margin — leave sale null.
+
+Respond with strict JSON only: { "finalTreatment": string, "sale": number|null, "cost": number|null, "payment": string|null, "note": string }. Only set a field to a non-null value if the user's comment actually specified or clearly implied it; otherwise use null so the existing value is kept.`;
+
+function buildExtractionMessages(chunk, month) {
+  return [
+    { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
+    { role: "user", content: JSON.stringify({ month, documents: chunk.map(d => ({ id: d.id, folder: d.folder, name: d.name, text: d.text })) }) }
+  ];
+}
+function buildReconciliationMessages(chunk, month) {
+  return [
+    { role: "system", content: RECONCILE_SYSTEM_PROMPT },
+    { role: "user", content: JSON.stringify({ month, documents: chunk }) }
+  ];
+}
+function buildInterpretMessages(tx, discrepancy, userComment) {
+  return [
+    { role: "system", content: INTERPRET_SYSTEM_PROMPT },
+    { role: "user", content: JSON.stringify({ transaction: tx, discrepancy: { missingItem: discrepancy.missingItem, currentIssue: discrepancy.currentIssue }, userComment }) }
+  ];
+}
+
+function parseJsonLoose(text) {
+  try { return JSON.parse(text); } catch {}
+  const match = text.match(/\{[\s\S]*\}/);
+  if (match) { try { return JSON.parse(match[0]); } catch {} }
+  throw new Error("Couldn't parse a JSON response from the model.");
+}
+
+// Populated from the API's rate-limit response headers (present on both success and
+// error responses) so batch sizing and concurrency can adapt to the account's actual
+// per-minute budget instead of guessing at one fixed worst-case default forever.
+const rateLimitInfo = { limitTokens: null, remainingTokens: null, limitRequests: null, remainingRequests: null };
+function recordRateLimitHeaders(headers) {
+  const num = (name) => { const v = headers.get(name); return v == null ? null : Number(v); };
+  const limitTokens = num("x-ratelimit-limit-tokens");
+  const remainingTokens = num("x-ratelimit-remaining-tokens");
+  const limitRequests = num("x-ratelimit-limit-requests");
+  const remainingRequests = num("x-ratelimit-remaining-requests");
+  if (limitTokens != null) rateLimitInfo.limitTokens = limitTokens;
+  if (remainingTokens != null) rateLimitInfo.remainingTokens = remainingTokens;
+  if (limitRequests != null) rateLimitInfo.limitRequests = limitRequests;
+  if (remainingRequests != null) rateLimitInfo.remainingRequests = remainingRequests;
+}
+
+async function callGroq(messages, { json = true, label = "" } = {}) {
+  const body = { messages, json };
+  const endpoint = "/api/reconcile";
+  processingState.activeRequests += 1;
+  setTokenMeterBusy(true);
+  renderProcessingStats();
+  try {
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    recordRateLimitHeaders(resp.headers);
+    // Only retry without response_format for errors that could plausibly be about JSON
+    // mode itself — retrying a 413/429 (payload too large / rate limited) with the same
+    // near-identical body would just fail again and burn another request against the
+    // per-minute token budget.
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
+      throw new Error(`SRX Intelligence API error ${resp.status}: ${errText.slice(0, 300)}`);
+    }
+    const data = await resp.json();
+    if (data.usage) recordTokenUsage(data.usage, label);
+    const content = data.choices?.[0]?.message?.content ?? "";
+    return parseJsonLoose(content);
+  } finally {
+    processingState.activeRequests = Math.max(0, processingState.activeRequests - 1);
+    setTokenMeterBusy(processingState.activeRequests > 0);
+    renderProcessingStats();
+  }
+}
+
+function isTooLargeError(err) {
+  const msg = String(err?.message || err);
+  return /\b413\b/.test(msg) || /too large/i.test(msg);
+}
+function isRateLimitError(err) {
+  const msg = String(err?.message || err);
+  return /\b429\b/.test(msg) || /rate.?limit/i.test(msg);
+}
+function parseRetryDelayMs(err) {
+  const match = String(err?.message || err).match(/try again in (\d+(?:\.\d+)?)\s*(ms|s)\b/i);
+  if (!match) return null;
+  const value = parseFloat(match[1]);
+  return match[2].toLowerCase() === "ms" ? value : value * 1000;
+}
+
+// Every user-facing surface (banners, alerts, the progress log) must show a short, plain
+// sentence — never the raw provider/browser error text (status codes, JSON error bodies,
+// stack traces). The real error always still goes to the console under an [SRX] tag so it
+// can be diagnosed later; this is what decides what the person actually sees.
+function friendlyErrorMessage(err, context) {
+  console.error(`[SRX${context ? " · " + context : ""}]`, err);
+  const msg = String(err?.message || err || "");
+  if (isTooLargeError(err)) return "That batch of documents was too large for SRX Intelligence to process in one request — it splits into smaller batches and retries automatically. If you still see this, try again shortly.";
+  if (isRateLimitError(err)) return "SRX Intelligence is temporarily rate-limited. The app waits and retries automatically — if this keeps happening, wait a minute before starting again.";
+  if (/\b401\b/.test(msg) || /invalid.*api.?key/i.test(msg)) return "SRX Intelligence rejected the API key — check the key in your .env file.";
+  if (/SRX Intelligence API error 5\d\d/.test(msg)) return "SRX Intelligence is temporarily unavailable — please try again shortly.";
+  if (/Couldn't parse a JSON response/i.test(msg)) return "SRX Intelligence returned a response the app couldn't understand — please try again.";
+  if (/Failed to fetch|NetworkError|network/i.test(msg)) return "Couldn't reach SRX Intelligence — check your internet connection and try again.";
+  if (/PDF reader/i.test(msg)) return "Couldn't load the PDF reader — check your internet connection and try again.";
+  if (/API key/i.test(msg)) return "An SRX Intelligence API key is required — check your .env file.";
+  if (err?.name === "SecurityError" || /SecurityError/.test(msg)) return "The browser blocked folder access here — open this app in a normal Chrome/Edge tab served over http://localhost, not a preview panel or file://.";
+  if (/directory|folder|handle/i.test(msg)) return "Couldn't access that folder — it may have been moved, renamed, or permission wasn't granted.";
+  if (/JSON/.test(msg)) return "Couldn't read saved data for this month — the file may be corrupted.";
+  return "Something went wrong. Technical details were logged to the browser console.";
+}
+
+// Rough chars-per-token estimate for sizing requests before sending them, rather than
+// only reacting after the account's per-minute limit rejects a batch.
+function estimateTokens(text) { return Math.ceil(String(text).length / 3.5); }
+
+// Once a real response has told us the account's actual per-minute token limit, size
+// future batches well under it (so a couple of them can run concurrently without
+// tripping the limit); before that's known, fall back to a conservative flat guess.
+function proactiveMaxChars() {
+  if (rateLimitInfo.limitTokens) {
+    const targetTokens = Math.max(1000, Math.floor(rateLimitInfo.limitTokens * 0.35));
+    return Math.floor(targetTokens * 3.5);
+  }
+  return 15000;
+}
+
+// How many batches to run at once. Concurrent requests still share one per-minute token
+// budget — this doesn't create more budget, it just uses the wall-clock time better — so
+// it stays modest, and backs off to serial the moment a rate limit is actually hit.
+let groqConcurrency = 2;
+function currentConcurrency() {
+  if (rateLimitInfo.remainingRequests != null && rateLimitInfo.remainingRequests <= 1) return 1;
+  return groqConcurrency;
+}
+
+// Minimal concurrency-limited worker pool: runs `worker` over `items` with up to
+// `limitFn()` in flight at once instead of waiting for each one to finish before starting
+// the next — this is the "run several batches at the same time" version of the pipeline,
+// bounded so it doesn't blow past the per-minute budget it's also trying to respect.
+async function runPool(items, worker, limitFn) {
+  let cursor = 0;
+  async function runNext() {
+    while (cursor < items.length) {
+      const i = cursor++;
+      await worker(items[i], i);
+    }
+  }
+  const size = Math.max(1, Math.min(limitFn(), items.length));
+  await Promise.all(Array.from({ length: size }, runNext));
+}
+
+// Wraps a chunked Groq call (used for both the extraction and reconciliation steps) with
+// automatic recovery: a 413 means this batch's token count alone exceeds the account's
+// per-minute limit, so it's halved and retried recursively — proactiveMaxChars() sizes
+// batches to avoid this up front, but real document text length varies a lot (OCR'd pages
+// especially), so this is the safety net for when that estimate is still too generous. A
+// 429 means the per-minute budget is temporarily used up (more likely now that batches can
+// run concurrently), so it drops concurrency to 1, waits (using the suggested delay when
+// given), and retries the same batch unchanged. onResult is called once per batch that
+// actually succeeds, so callers can merge partial results incrementally.
+async function callGroqWithAutoSplit(items, month, messageBuilder, label, onResult, depth = 0) {
+  if (!items.length) return;
+  try {
+    const messages = messageBuilder(items, month);
+    const result = await callGroq(messages, { json: true, label: `${label} (${items.length} doc${items.length === 1 ? "" : "s"})` });
+    onResult(result, items);
+  } catch (err) {
+    if (items.length > 1 && isTooLargeError(err)) {
+      logStatus(`A batch of ${items.length} document(s) was too large for SRX Intelligence's per-minute token limit — splitting it into smaller batches and retrying…`);
+      const mid = Math.ceil(items.length / 2);
+      await callGroqWithAutoSplit(items.slice(0, mid), month, messageBuilder, label, onResult, depth + 1);
+      await callGroqWithAutoSplit(items.slice(mid), month, messageBuilder, label, onResult, depth + 1);
+      return;
+    }
+    if (isRateLimitError(err) && depth < 8) {
+      groqConcurrency = 1;
+      const waitMs = parseRetryDelayMs(err) || 3000;
+      logStatus(`Hit SRX Intelligence's per-minute rate limit — waiting ${(waitMs / 1000).toFixed(1)}s and retrying…`);
+      await new Promise(r => setTimeout(r, waitMs));
+      await callGroqWithAutoSplit(items, month, messageBuilder, label, onResult, depth + 1);
+      return;
+    }
+    throw err;
+  }
+}
+
+function recomputeFinancials(tx) {
+  if (tx.sale == null || tx.sale === "") {
+    tx.profit = null; tx.margin = null; tx.resultClass = "Unclear";
+    return;
+  }
+  const sale = Number(tx.sale) || 0;
+  const cost = Number(tx.cost) || 0;
+  tx.profit = +(sale - cost).toFixed(2);
+  tx.margin = sale ? (tx.profit / sale) * 100 : 0;
+  tx.resultClass = tx.profit > 0.004 ? "Profitable" : tx.profit < -0.004 ? "Loss" : "Break-even";
+}
+
+function showScreen(name) {
+  document.querySelectorAll(".screen").forEach(s => { s.hidden = s.id !== `screen-${name}`; });
+  document.getElementById("startOverBtn").hidden = name === "setup";
+}
+
+function checkEnvironment() {
+  const banner = document.getElementById("setupBanner");
+  const problems = [];
+  const isEmbedded = window.self !== window.top;
+  if (!("showDirectoryPicker" in window)) problems.push("This browser doesn't support folder selection (File System Access API). Open this app in an actual Chrome or Edge window — not Firefox or Safari.");
+  if (location.protocol === "file:") problems.push("This page was opened directly from disk (file://). Folder selection needs a real origin — serve this folder locally (for example run “npx serve” or “python -m http.server” from the project root) and open the http://localhost… URL instead of double-clicking index.html.");
+  if (isEmbedded) problems.push("This page appears to be inside an embedded preview (like an editor's built-in browser/webview panel), where folder selection is usually blocked. Copy this page's URL and open it in a normal Chrome or Edge browser window/tab instead.");
+  if (problems.length) {
+    banner.hidden = false;
+    banner.innerHTML = problems.map(p => `<div>${escapeHtml(p)}</div>`).join("");
+    if (!("showDirectoryPicker" in window) || location.protocol === "file:") {
+      document.querySelectorAll(".pick-folder-btn").forEach(b => b.disabled = true);
+    }
+  }
+}
+
+function updateBeginButton() {
+  const ready = monthInput.value.trim() &&
+    state.folders.source.length && state.folders.paid.length;
+  beginBtn.disabled = !ready;
+}
+
+const DB_NAME = "altaj-sales-report-agent";
+const STORE_NAME = "handles";
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbSet(key, value) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+let dataDirHandle = null;
+
+function renderDestinationPill() {
+  const pill = document.getElementById("destinationPill");
+  const text = document.getElementById("destinationPillText");
+  if (!pill || !text) return;
+  if (dataDirHandle) {
+    text.textContent = "reports/ folder set";
+    pill.title = "Reports are saved here automatically — click to change";
+    pill.classList.remove("unset");
+  } else {
+    text.textContent = "Choose destination…";
+    pill.title = "Choose where reports are saved";
+    pill.classList.add("unset");
+  }
+}
+
+// Reconnects silently on page load if the browser still remembers a prior grant for this
+// handle (IndexedDB stores the handle itself, not just its path — File System Access
+// handles are structured-cloneable). If permission isn't remembered, this just leaves the
+// folder disconnected rather than forcing a picker prompt on every load.
+async function reconnectDataFolder() {
+  try {
+    const stored = await idbGet("dataDirHandle");
+    if (stored && (await stored.queryPermission({ mode: "readwrite" })) === "granted") {
+      dataDirHandle = stored;
+    }
+  } catch { /* IndexedDB/handle unavailable; will be requested again on begin */ }
+  renderDestinationPill();
+}
+
+// Shared by the auto first-time prompt (from Begin) and the destination pill (user-initiated
+// change at any time). Always creates/reuses a "reports" subfolder inside whatever folder is
+// picked, so choosing this project's app/ folder results in app/reports/ being used for saves.
+async function pickReportsFolder() {
+  try {
+    const parent = await window.showDirectoryPicker({ mode: "readwrite" });
+    const reports = await parent.getDirectoryHandle("reports", { create: true });
+    await idbSet("dataDirHandle", reports);
+    dataDirHandle = reports;
+    renderDestinationPill();
+    await refreshDataFolderPanels();
+    updateBeginButton();
+    return true;
+  } catch (err) {
+    if (err.name !== "AbortError") alert(`Couldn't set that folder. ${friendlyErrorMessage(err, "pick reports folder")}`);
+    return false;
+  }
+}
+
+// Called from the Begin button's click handler (so the required user-activation for
+// showDirectoryPicker is still present) — only prompts the first time, before a folder's
+// been granted yet.
+async function ensureDataFolder() {
+  if (dataDirHandle) return true;
+  return pickReportsFolder();
+}
+
+// Bound to the topbar destination pill — always re-prompts, letting the destination be
+// changed at any point, not just on first run.
+async function changeDataFolder() {
+  return pickReportsFolder();
+}
+
+async function saveReportFile(html) {
+  if (!dataDirHandle || !state.month) return;
+  const banner = document.getElementById("exportSaveNote");
+  try {
+    const fileHandle = await dataDirHandle.getFileHandle(`${slugify(state.month)}-sales-report.html`, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(html);
+    await writable.close();
+    if (banner) { banner.textContent = `Saved to reports/${slugify(state.month)}-sales-report.html`; banner.hidden = false; }
+  } catch (err) {
+    if (banner) { banner.textContent = `Couldn't save the report to reports/ automatically — ${friendlyErrorMessage(err, "save report")} Use the Download button below instead.`; banner.hidden = false; }
+  }
+}
+
+async function saveProcessedFile() {
+  if (!dataDirHandle || !state.month) return;
+  try {
+    const fileHandle = await dataDirHandle.getFileHandle(`${slugify(state.month)}.json`, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify({
+      month: state.month,
+      savedAt: new Date().toISOString(),
+      transactions: state.transactions,
+      discrepancies: state.discrepancies,
+      tokenUsage: state.tokenUsage,
+      tokenLog: state.tokenLog
+    }, null, 2));
+    await writable.close();
+  } catch (err) {
+    logStatus(`Couldn't autosave processed data automatically — ${friendlyErrorMessage(err, "autosave")}`);
+  }
+}
+
+async function listProcessedFiles() {
+  if (!dataDirHandle) return [];
+  const names = [];
+  for await (const [name, handle] of dataDirHandle.entries()) {
+    if (handle.kind === "file" && /\.json$/i.test(name)) names.push(name);
+  }
+  return names.sort();
+}
+
+async function scanProcessedFiles() {
+  if (!dataDirHandle) return [];
+  const names = await listProcessedFiles();
+  const out = [];
+  for (const name of names) {
+    try {
+      const fileHandle = await dataDirHandle.getFileHandle(name);
+      const file = await fileHandle.getFile();
+      const data = JSON.parse(await file.text());
+      const discrepancies = data.discrepancies || [];
+      const openCount = discrepancies.filter(isDiscrepancyOpen).length;
+      out.push({ name, month: data.month || name.replace(/\.json$/i, ""), savedAt: data.savedAt || "", openCount });
+    } catch { /* skip unreadable/corrupt file */ }
+  }
+  return out;
+}
+
+// Surfaces reconciled-but-unfinished months automatically instead of requiring the user to
+// dig for them: months with open discrepancies land in the "needs attention" table, fully
+// resolved months land in the resume dropdown for report regeneration.
+async function refreshDataFolderPanels() {
+  const openSection = document.getElementById("openDiscrepanciesSection");
+  const openRows = document.getElementById("openDiscrepancyRows");
+  const resumeSection = document.getElementById("resumeSection");
+  const resumeSelect = document.getElementById("resumeSelect");
+  if (!dataDirHandle) {
+    openSection.hidden = true;
+    resumeSection.hidden = true;
+    return;
+  }
+  const entries = await scanProcessedFiles();
+  const open = entries.filter(e => e.openCount > 0).sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+  const resolved = entries.filter(e => e.openCount === 0);
+
+  openSection.hidden = open.length === 0;
+  openRows.innerHTML = open.map(e => `
+    <tr>
+      <td>${escapeHtml(e.month)}</td>
+      <td class="num">${e.openCount}</td>
+      <td><button class="outline-btn resolve-discrepancy-btn" type="button" data-name="${escapeHtml(e.name)}">Resolve&hellip;</button></td>
+    </tr>`).join("");
+
+  resumeSection.hidden = resolved.length === 0;
+  resumeSelect.innerHTML = resolved.map(e => `<option value="${escapeHtml(e.name)}">${escapeHtml(e.month)}</option>`).join("");
+}
+
+async function loadProcessedFile(name) {
+  try {
+    const fileHandle = await dataDirHandle.getFileHandle(name);
+    const file = await fileHandle.getFile();
+    const data = JSON.parse(await file.text());
+    state.month = data.month || "";
+    state.transactions = data.transactions || [];
+    state.discrepancies = data.discrepancies || [];
+    state.tokenUsage = data.tokenUsage || { promptTokens: 0, completionTokens: 0, totalTokens: 0, calls: 0 };
+    state.tokenLog = data.tokenLog || [];
+    renderTokenMeter();
+    const stillOpen = state.discrepancies.some(isDiscrepancyOpen);
+    if (stillOpen) {
+      showScreen("reconcile");
+      renderReconcileScreen();
+    } else {
+      goToExportScreen();
+    }
+  } catch (err) {
+    alert(`Couldn't load that processed file. ${friendlyErrorMessage(err, "load processed file")}`);
+  }
+}
+
+async function pickFolder(kind) {
+  if (!("showDirectoryPicker" in window)) {
+    alert("This browser doesn't support folder selection. Open this app in an actual Chrome or Edge window.");
+    return;
+  }
+  try {
+    const dirHandle = await window.showDirectoryPicker();
+    const files = [];
+    for await (const [name, handle] of dirHandle.entries()) {
+      if (handle.kind === "file" && /\.pdf$/i.test(name)) {
+        files.push({ name, file: await handle.getFile() });
+      }
+    }
+    state.folders[kind] = files;
+    const statusEl = document.querySelector(`.folder-status[data-status="${kind}"]`);
+    statusEl.textContent = `${dirHandle.name} — ${files.length} PDF${files.length === 1 ? "" : "s"} found`;
+    statusEl.classList.toggle("ready", files.length > 0);
+    updateBeginButton();
+  } catch (err) {
+    if (err.name === "AbortError") return;
+    if (err.name === "SecurityError") {
+      alert("The browser blocked folder access in this context. This usually means the page is open via file://, or inside an embedded preview/webview (e.g. an editor's built-in browser panel). Serve this folder over http://localhost and open it in a normal Chrome/Edge tab instead.");
+      return;
+    }
+    alert(`Couldn't read that folder. ${friendlyErrorMessage(err, "pick folder")}`);
+  }
+}
+
+const STEPS = [
+  { key: "extract", label: "Reading PDF text" },
+  { key: "tabulate", label: "Extracting structured fields with SRX Intelligence" },
+  { key: "reconcile", label: "Matching documents + reconciling with SRX Intelligence" }
+];
+function resetProcessingUI() {
+  document.getElementById("processingMonth").textContent = state.month;
+  document.getElementById("processingError").hidden = true;
+  document.getElementById("backToSetupBtn").hidden = true;
+  document.getElementById("progressLog").innerHTML = "";
+  document.getElementById("stepList").innerHTML = STEPS.map(s => `<li data-step="${s.key}"><span class="dot"></span>${s.label}</li>`).join("");
+  processingState.activeRequests = 0;
+  processingState.currentStage = "Preparing";
+  startProcessingClock();
+  renderProcessingStats();
+}
+function setStep(key, status) {
+  const li = document.querySelector(`#stepList li[data-step="${key}"]`);
+  if (!li) return;
+  li.classList.remove("active", "done");
+  if (status) li.classList.add(status);
+  if (status === "done") li.querySelector(".dot").textContent = "✓";
+}
+function logStatus(text) {
+  const log = document.getElementById("progressLog");
+  if (!log) return;
+  const line = document.createElement("div");
+  line.textContent = text;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+function showProcessingError(message) {
+  const banner = document.getElementById("processingError");
+  banner.hidden = false;
+  banner.textContent = message;
+  document.getElementById("backToSetupBtn").hidden = false;
+  setProcessingStage("Stopped");
+  stopProcessingClock();
+}
+
+async function runPipeline() {
+  showScreen("processing");
+  resetProcessingUI();
+  try {
+    setProcessingStage("Reading PDF text");
+    setStep("extract", "active");
+    await extractAllText();
+    setStep("extract", "done");
+
+    setProcessingStage("Extracting structured fields");
+    setStep("tabulate", "active");
+    const allDocs = flattenDocs(state.docs.source, state.docs.raised, state.docs.paid);
+    const extractChunks = chunkDocs(allDocs, proactiveMaxChars());
+    if (extractChunks.length > 1) logStatus(`Extracting structured fields in ${extractChunks.length} batches (up to ${currentConcurrency()} at a time)…`);
+    const extractedById = new Map();
+    await runPool(extractChunks, async (chunk, i) => {
+      logStatus(`Extracting structured fields for batch ${i + 1} of ${extractChunks.length}…`);
+      await callGroqWithAutoSplit(chunk, state.month, buildExtractionMessages, `Extract batch ${i + 1}/${extractChunks.length}`, (result) => {
+        for (const d of (result.documents || [])) {
+          if (d && d.id) extractedById.set(d.id, d);
+        }
+      });
+    }, currentConcurrency);
+    const docTable = allDocs.map(d => {
+      const extracted = extractedById.get(d.id) || {};
+      return {
+        folder: d.folder, name: d.name, text: d.text,
+        refId: extracted.refId ?? null, description: extracted.description ?? null,
+        date: extracted.date ?? null, amount: extracted.amount ?? null,
+        currency: extracted.currency ?? null, party: extracted.party ?? null,
+        travelerNames: extracted.travelerNames ?? null,
+        paymentConfirmed: extracted.paymentConfirmed ?? null
+      };
+    });
+    logStatus(`Extracted structured fields for ${docTable.length} document(s).`);
+    setStep("tabulate", "done");
+
+    setProcessingStage("Reconciling transactions");
+    setStep("reconcile", "active");
+    // Matching needs every related document visible to the same call — sending full raw
+    // text (as extraction did) would force the same size-based chunking that caused
+    // Source/Paid pairs to land in different batches and never get matched. The tabulated
+    // fields already carry what matching needs (they were derived from the complete text),
+    // so only a short excerpt goes along for a sanity check, keeping a typical month's
+    // documents small enough to reconcile in one batch instead of several.
+    const reconcileDocs = docTable.map(toReconcileDoc);
+    const reconcileChunks = chunkDocs(reconcileDocs, proactiveMaxChars());
+    if (reconcileChunks.length > 1) logStatus(`Reconciling in ${reconcileChunks.length} batches (up to ${currentConcurrency()} at a time)…`);
+    let transactions = [], discrepancies = [];
+    await runPool(reconcileChunks, async (chunk, i) => {
+      logStatus(`Sending batch ${i + 1} of ${reconcileChunks.length} to SRX Intelligence for matching + reconciliation…`);
+      await callGroqWithAutoSplit(chunk, state.month, buildReconciliationMessages, `Reconcile batch ${i + 1}/${reconcileChunks.length}`, (result) => {
+        transactions.push(...(result.transactions || []));
+        discrepancies.push(...(result.discrepancies || []));
+      });
+      logStatus(`Batch ${i + 1} done — running total: ${state.tokenUsage.totalTokens.toLocaleString()} tokens.`);
+    }, currentConcurrency);
+    transactions.forEach((tx, i) => { tx.id = tx.id || `TXN${i + 1}`; recomputeFinancials(tx); });
+    state.transactions = transactions;
+    state.discrepancies = discrepancies.map((d, i) => ({
+      id: `D${i + 1}`, transaction: d.transaction, missingItem: d.missingItem || "",
+      currentIssue: d.currentIssue || "", priority: d.priority || "Medium",
+      missingSide: d.missingSide || "Other",
+      status: d.status || "Needs clarification", userComment: "", finalTreatment: ""
+    }));
+    setStep("reconcile", "done");
+    logStatus(`Done: ${transactions.length} transaction(s), ${state.discrepancies.length} discrepanc${state.discrepancies.length === 1 ? "y" : "ies"} to review.`);
+    await saveProcessedFile();
+    setProcessingStage("Completed");
+    stopProcessingClock();
+
+    showScreen("reconcile");
+    renderReconcileScreen();
+  } catch (err) {
+    showProcessingError(friendlyErrorMessage(err, "pipeline"));
+  }
+}
+
+// Rows stay expanded across re-renders (every resolution action re-renders the whole
+// table) by tracking which transaction ids are open here, rather than in the DOM.
+const expandedTxIds = new Set();
+
+function renderReconcileScreen() {
+  document.getElementById("reconcileMonth").textContent = state.month;
+  const open = state.discrepancies.filter(isDiscrepancyOpen);
+  const excludedCount = state.transactions.filter(t => t.excluded).length;
+  const activeCount = state.transactions.length - excludedCount;
+  document.getElementById("reconcileCounts").textContent =
+    ` · ${activeCount} transaction${activeCount === 1 ? "" : "s"}${excludedCount ? ` (${excludedCount} excluded)` : ""}` +
+    ` · ${state.discrepancies.length - open.length} of ${state.discrepancies.length} discrepancies resolved · ${state.tokenUsage.totalTokens.toLocaleString()} tokens spent`;
+  const generateBtn = document.getElementById("generateReportBtn");
+  generateBtn.disabled = open.length > 0;
+  document.getElementById("reconcileHint").textContent = open.length
+    ? `Resolve ${open.length} open discrepanc${open.length === 1 ? "y" : "ies"} below before generating the report.`
+    : "All discrepancies resolved — ready to generate the report.";
+
+  document.getElementById("discrepancyList").innerHTML = !open.length
+    ? `<p class="hint">No open discrepancies.</p>`
+    : `<div class="discrepancy-jumplist">${open.map(d => `
+        <button type="button" class="discrepancy-jump-btn" data-jump="${escapeHtml(d.transaction)}">
+          <span class="badge priority-${(d.priority || "Medium").toLowerCase()}">${escapeHtml(d.priority || "Medium")}</span>
+          ${escapeHtml(d.transaction || "Unassigned")} — missing ${escapeHtml((d.missingSide || "info").toLowerCase())}
+        </button>`).join("")}</div>`;
+
+  document.getElementById("reconcileRows").innerHTML = state.transactions.map(renderTxRow).join("");
+  saveProcessedFile();
+}
+
+const ICON_FOUND = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+const ICON_MISSING = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+const ICON_CHEVRON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
+
+// Renders exactly which document (if any) backs each side of a transaction — the
+// concrete "what's missing" evidence trail, instead of a vague prose discrepancy.
+function evidenceBadge(label, filename) {
+  const found = !!filename;
+  return `<span class="evidence-badge ${found ? "found" : "missing"}">${found ? ICON_FOUND : ICON_MISSING}${escapeHtml(label)}${found ? `: ${escapeHtml(filename)}` : " not found"}</span>`;
+}
+
+function renderTxRow(tx) {
+  if (tx.excluded) {
+    return `<tr class="tx-excluded" data-tx-row="${escapeHtml(tx.id)}">
+      <td>${escapeHtml(tx.id)}</td><td>${escapeHtml(tx.type || "")}</td><td>${escapeHtml(tx.customer || "")}</td>
+      <td class="num">${tx.sale != null ? money.format(tx.sale) : "—"}</td>
+      <td class="num">${tx.cost != null ? money.format(tx.cost) : "—"}</td>
+      <td class="num">—</td><td class="num">—</td>
+      <td><span class="badge excluded">Excluded</span> <button class="outline-btn restore-btn" type="button" data-restore="${escapeHtml(tx.id)}">Restore</button></td>
+    </tr>`;
+  }
+  const disc = state.discrepancies.find(d => d.transaction === tx.id && isDiscrepancyOpen(d));
+  const expanded = !!disc && expandedTxIds.has(tx.id);
+  const mainRow = `<tr class="${disc ? "flag-row" : ""}" data-tx-row="${escapeHtml(tx.id)}">
+    <td>${escapeHtml(tx.id)}</td><td>${escapeHtml(tx.type || "")}</td><td>${escapeHtml(tx.customer || "")}</td>
+    <td class="num">${tx.sale != null ? money.format(tx.sale) : "—"}</td>
+    <td class="num">${tx.cost != null ? money.format(tx.cost) : "—"}</td>
+    <td class="num ${toneClass(tx.profit)}">${tx.profit != null ? money.format(tx.profit) : "—"}</td>
+    <td class="num ${toneClass(tx.margin)}">${tx.margin != null ? tx.margin.toFixed(2) + "%" : "—"}</td>
+    <td>${disc
+      ? `<button class="expand-toggle" type="button" data-expand="${escapeHtml(tx.id)}" aria-expanded="${expanded ? "true" : "false"}">${escapeHtml(disc.status)}${ICON_CHEVRON}</button>`
+      : `<span class="badge ok">Clean</span>`}</td>
+  </tr>`;
+  if (!disc) return mainRow;
+  const drawerRow = `<tr class="discrepancy-drawer-row" data-drawer-for="${escapeHtml(tx.id)}" ${expanded ? "" : "hidden"}>
+    <td colspan="8">
+      <div class="drawer-content">
+        <div class="evidence-row">
+          ${evidenceBadge("Source", tx.sourceDoc)}
+          ${evidenceBadge("Raised", tx.raisedDoc)}
+          ${evidenceBadge("Paid", tx.paidDoc)}
+        </div>
+        <div class="discrepancy-head">
+          <strong>${escapeHtml(disc.missingItem || "Needs review")}</strong>
+          <span class="badge priority-${(disc.priority || "Medium").toLowerCase()}">${escapeHtml(disc.priority || "Medium")}</span>
+        </div>
+        <p class="issue">${escapeHtml(disc.currentIssue || "")}</p>
+        <textarea class="resolution-input" placeholder="Add a comment or resolution…">${escapeHtml(disc.userComment || "")}</textarea>
+        <div class="discrepancy-actions">
+          <button class="outline-btn accept-btn" type="button" data-tx="${escapeHtml(tx.id)}">Accept as-is</button>
+          <button class="primary-btn resolve-btn" type="button" data-tx="${escapeHtml(tx.id)}">Save resolution</button>
+          <button class="outline-btn exclude-btn" type="button" data-tx="${escapeHtml(tx.id)}">Exclude from report&hellip;</button>
+        </div>
+      </div>
+    </td>
+  </tr>`;
+  return mainRow + drawerRow;
+}
+
+function getResolutionInput(txId) {
+  return document.querySelector(`tr[data-drawer-for="${CSS.escape(txId)}"] .resolution-input`);
+}
+
+document.getElementById("discrepancyList").addEventListener("click", (e) => {
+  const jumpBtn = e.target.closest("[data-jump]");
+  if (!jumpBtn) return;
+  const id = jumpBtn.dataset.jump;
+  expandedTxIds.add(id);
+  renderReconcileScreen();
+  document.querySelector(`tr[data-drawer-for="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
+document.getElementById("reconcileRows").addEventListener("click", async (e) => {
+  const expandBtn = e.target.closest("[data-expand]");
+  if (expandBtn) {
+    const id = expandBtn.dataset.expand;
+    if (expandedTxIds.has(id)) expandedTxIds.delete(id); else expandedTxIds.add(id);
+    renderReconcileScreen();
+    return;
+  }
+  const restoreBtn = e.target.closest("[data-restore]");
+  if (restoreBtn) {
+    const id = restoreBtn.dataset.restore;
+    const tx = state.transactions.find(t => t.id === id);
+    if (tx) tx.excluded = false;
+    const d = state.discrepancies.find(x => x.transaction === id && x.status === "Excluded");
+    if (d) { d.status = "Needs clarification"; d.finalTreatment = ""; }
+    renderReconcileScreen();
+    return;
+  }
+  const resolveBtn = e.target.closest(".resolve-btn");
+  if (resolveBtn) {
+    const id = resolveBtn.dataset.tx;
+    const d = state.discrepancies.find(x => x.transaction === id && isDiscrepancyOpen(x));
+    const comment = getResolutionInput(id)?.value.trim();
+    if (!d) return;
+    if (!comment) { alert("Add a comment first, then save the resolution."); return; }
+    d.userComment = comment;
+    resolveBtn.disabled = true;
+    resolveBtn.textContent = "Saving...";
+    try {
+      const tx = state.transactions.find(t => t.id === d.transaction);
+      const result = await callGroq(buildInterpretMessages(tx || {}, d, comment), { json: true, label: `Resolve ${d.transaction || d.id}` });
+      if (tx) {
+        if (result.sale != null) tx.sale = result.sale;
+        if (result.cost != null) tx.cost = result.cost;
+        if (result.payment) tx.payment = result.payment;
+        if (result.note) tx.note = tx.note ? `${tx.note} ${result.note}` : result.note;
+        recomputeFinancials(tx);
+      }
+      d.status = "Resolved";
+      d.finalTreatment = result.finalTreatment || result.note || comment;
+      expandedTxIds.delete(id);
+      renderReconcileScreen();
+    } catch (err) {
+      alert(`Couldn't save the resolution. ${friendlyErrorMessage(err, "resolve")}`);
+      resolveBtn.disabled = false;
+      resolveBtn.textContent = "Save resolution";
+    }
+    return;
+  }
+  const acceptBtn = e.target.closest(".accept-btn");
+  if (acceptBtn) {
+    const id = acceptBtn.dataset.tx;
+    const d = state.discrepancies.find(x => x.transaction === id && isDiscrepancyOpen(x));
+    if (!d) return;
+    d.status = "Accepted";
+    d.finalTreatment = d.userComment || "Accepted without further clarification.";
+    expandedTxIds.delete(id);
+    renderReconcileScreen();
+    return;
+  }
+  const excludeBtn = e.target.closest(".exclude-btn");
+  if (excludeBtn) {
+    const id = excludeBtn.dataset.tx;
+    if (!confirm(`Exclude ${id} from this report? It stays in the saved data and can be restored later — it just won't count toward totals or appear in the exported report.`)) return;
+    const tx = state.transactions.find(t => t.id === id);
+    const d = state.discrepancies.find(x => x.transaction === id && isDiscrepancyOpen(x));
+    if (tx) tx.excluded = true;
+    if (d) { d.status = "Excluded"; d.finalTreatment = d.userComment || "Excluded from report."; }
+    expandedTxIds.delete(id);
+    renderReconcileScreen();
+    return;
+  }
+});
+
+function toReportRow(tx) {
+  return {
+    id: tx.id, type: tx.type || "Other", description: tx.description || "",
+    customer: tx.customer || "", classification: tx.classification || "Individual",
+    issueDate: /^\d{4}-\d{2}-\d{2}$/.test(tx.issueDate || "") ? tx.issueDate : monthFallbackDate(),
+    sale: tx.sale != null ? Number(tx.sale) : 0,
+    cost: tx.cost != null ? Number(tx.cost) : 0,
+    payment: tx.payment || "Unclear", ref: tx.ref || "",
+    note: tx.note || "", detail: tx.detail || ""
+  };
+}
+function monthFallbackDate() { return new Date().toISOString().slice(0, 10); }
+function dateFmtShort(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return isNaN(d) ? iso : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(d);
+}
+function computePeriodLabel(rows) {
+  const dates = rows.map(r => r.issueDate).filter(Boolean).sort();
+  if (!dates.length) return state.month;
+  const start = dateFmtShort(dates[0]);
+  const end = dateFmtShort(dates[dates.length - 1]);
+  return start === end ? start : `${start} – ${end}`;
+}
+function buildAccountingNote() {
+  const notes = state.discrepancies.filter(d => d.finalTreatment).map(d => `${d.transaction}: ${d.finalTreatment}`);
+  return notes.length ? notes.join(" · ") : `All transactions reconciled from source, raised, and paid invoices for ${state.month}.`;
+}
+
+function buildReportDocument(rows, opts) {
+  const template = document.getElementById("reportSource").textContent;
+  const replacements = {
+    "@@MONTH_TITLE@@": escapeHtml(opts.month || "Monthly"),
+    "@@PERIOD_LABEL@@": escapeHtml(computePeriodLabel(rows)),
+    "@@LOGO_SRC@@": opts.logoDataUrl || "../logo/AlTaj.png",
+    "@@NOTE_TEXT@@": escapeHtml(opts.accountingNote || ""),
+    "@@CSV_NAME@@": `${slugify(opts.month)}-sales-report.csv`,
+    "@@TX_JSON@@": JSON.stringify(rows).replace(/</g, "\\u003c"),
+    "@@ENDSCRIPT@@": "</" + "script>"
+  };
+  let html = template;
+  for (const [token, value] of Object.entries(replacements)) html = html.split(token).join(value);
+  return html;
+}
+
+function goToExportScreen() {
+  showScreen("export");
+  document.getElementById("exportMonth").textContent = state.month;
+  const rows = state.transactions.filter(tx => !tx.excluded).map(toReportRow);
+  const totalSale = rows.reduce((s, r) => s + r.sale, 0);
+  const totalCost = rows.reduce((s, r) => s + r.cost, 0);
+  const profit = totalSale - totalCost;
+  const margin = totalSale ? (profit / totalSale * 100) : 0;
+  document.getElementById("exportKpis").innerHTML = [
+    ["Total sales", money.format(totalSale)],
+    ["Supplier cost", money.format(totalCost)],
+    ["Net P/L", money.format(profit)],
+    ["Margin", margin.toFixed(2) + "%"]
+  ].map(([label, value]) => `<div class="kpi"><span>${label}</span><strong>${value}</strong></div>`).join("");
+  const html = buildReportDocument(rows, { month: state.month, logoDataUrl: state.logoDataUrl, accountingNote: buildAccountingNote() });
+  state.lastReportHtml = html;
+  document.getElementById("reportPreview").srcdoc = html;
+  saveReportFile(html);
+}
+
+function resetApp() {
+  stopProcessingClock();
+  processingState.startedAt = 0;
+  processingState.activeRequests = 0;
+  processingState.currentStage = "Waiting";
+  state.folders = { source: [], raised: [], paid: [] };
+  state.docs = { source: [], raised: [], paid: [] };
+  state.transactions = []; state.discrepancies = []; state.month = "";
+  monthInput.value = "";
+  resetTokenUsage();
+  document.querySelectorAll(".folder-status[data-status]").forEach(el => {
+    el.textContent = "No folder selected";
+    el.classList.remove("ready");
+  });
+  updateBeginButton();
+  refreshDataFolderPanels();
+  showScreen("setup");
+}
+
+async function loadLogo() {
+  try {
+    const resp = await fetch("logo/AlTaj.png");
+    if (!resp.ok) return;
+    const blob = await resp.blob();
+    state.logoDataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch { /* non-fatal: exported report falls back to a relative logo path */ }
+}
+
+function parseEnvText(text) {
+  const out = {};
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+// The browser checks only whether the local server is configured. The API key
+// remains server-side and is never returned to this page.
+async function loadEnvConfig() {
+  const banner = document.getElementById("setupBanner");
+  apiKeyInput.value = "server-managed";
+  try {
+    const response = await fetch("/api/health");
+    const config = await response.json();
+    if (!config.ready) {
+      banner.hidden = false;
+      banner.innerHTML += `<div>Gemini is not configured yet. Copy .env.example to .env, add GEMINI_API_KEY, then restart SRX.</div>`;
+    }
+  } catch {
+    banner.hidden = false;
+    banner.innerHTML += `<div>Couldn't reach the local SRX service. Start it with npm start and reload this page.</div>`;
+  }
+  updateBeginButton();
+}
+
+document.querySelectorAll(".pick-folder-btn").forEach(btn => btn.addEventListener("click", () => pickFolder(btn.dataset.kind)));
+beginBtn.addEventListener("click", async () => {
+  const ok = await ensureDataFolder();
+  if (!ok) return;
+  state.month = monthInput.value.trim();
+  runPipeline();
+});
+document.getElementById("backToSetupBtn").addEventListener("click", () => showScreen("setup"));
+document.getElementById("generateReportBtn").addEventListener("click", goToExportScreen);
+document.getElementById("downloadReportBtn").addEventListener("click", () => {
+  const blob = new Blob([state.lastReportHtml], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${slugify(state.month)}-sales-report.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+document.getElementById("startNewBtn").addEventListener("click", resetApp);
+document.getElementById("startOverBtn").addEventListener("click", () => { if (confirm("Start over? Current progress will be lost.")) resetApp(); });
+
+const keyPeek = document.getElementById("keyPeek");
+const toggleKeyBtn = document.getElementById("toggleKeyBtn");
+toggleKeyBtn.addEventListener("click", () => {
+  const showing = !keyPeek.hidden;
+  if (showing) {
+    keyPeek.hidden = true; apiKeyInput.style.visibility = "visible"; toggleKeyBtn.setAttribute("aria-pressed", "false");
+  } else {
+    keyPeek.textContent = maskKey(apiKeyInput.value); keyPeek.hidden = false;
+    apiKeyInput.style.visibility = "hidden"; toggleKeyBtn.setAttribute("aria-pressed", "true");
+  }
+});
+apiKeyInput.addEventListener("input", () => {
+  if (!keyPeek.hidden) keyPeek.textContent = maskKey(apiKeyInput.value);
+  updateBeginButton();
+});
+monthInput.addEventListener("input", updateBeginButton);
+document.getElementById("modelSelect").addEventListener("change", (e) => {
+  document.getElementById("customModelInput").hidden = e.target.value !== "__custom__";
+  updateBeginButton();
+});
+document.getElementById("customModelInput").addEventListener("input", updateBeginButton);
+
+document.getElementById("destinationPill").addEventListener("click", changeDataFolder);
+document.getElementById("resumeLoadBtn").addEventListener("click", () => {
+  const name = document.getElementById("resumeSelect").value;
+  if (name) loadProcessedFile(name);
+});
+document.getElementById("openDiscrepancyRows").addEventListener("click", (e) => {
+  const btn = e.target.closest(".resolve-discrepancy-btn");
+  if (btn) loadProcessedFile(btn.dataset.name);
+});
+
+checkEnvironment();
+loadLogo();
+loadEnvConfig();
+reconnectDataFolder().then(refreshDataFolderPanels).then(updateBeginButton);
+updateBeginButton();
+</script>
+
+</body>
+</html>
