@@ -319,25 +319,6 @@ tr.flag-row:hover { background: #faefd4; }
   </div>
 </header>
 
-<div class="api-bar">
-  <div class="field">
-    <label for="apiKeyInput">SRX Intelligence API key</label>
-    <div class="key-row">
-      <input id="apiKeyInput" type="password" placeholder="gsk_&hellip;" autocomplete="off" spellcheck="false">
-      <span id="keyPeek" class="key-peek" hidden></span>
-      <button id="toggleKeyBtn" class="icon-btn" type="button" aria-pressed="false" aria-label="Preview key characters">&#128065;</button>
-    </div>
-  </div>
-  <div class="field">
-    <label for="modelSelect">Model</label>
-    <select id="modelSelect">
-      <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash</option>
-    </select>
-    <input id="customModelInput" type="text" placeholder="exact SRX Intelligence model id" hidden>
-  </div>
-  <p class="api-hint">Sent directly from this browser to SRX Intelligence's API &mdash; visible in this browser's network requests, never stored on any server, and cleared when you close this tab. Switch the key or model any time.</p>
-</div>
-
 <main>
   <section id="screen-setup" class="screen">
     <h2 class="setup-headline">Raw invoices in. A polished report out.</h2>
@@ -1417,7 +1398,6 @@ function setProcessingStage(label) {
   renderProcessingStats();
 }
 
-const apiKeyInput = document.getElementById("apiKeyInput");
 const monthInput = document.getElementById("monthInput");
 const beginBtn = document.getElementById("beginBtn");
 const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1427,17 +1407,6 @@ function slugify(text) { return String(text || "report").toLowerCase().trim().re
 function toneClass(value) { return value == null ? "" : value > 0.004 ? "positive" : value < -0.004 ? "negative" : "neutral"; }
 const TERMINAL_DISCREPANCY_STATUSES = ["Resolved", "Accepted", "Excluded"];
 function isDiscrepancyOpen(d) { return !TERMINAL_DISCREPANCY_STATUSES.includes(d.status); }
-function maskKey(key) {
-  if (!key) return "";
-  if (key.length <= 8) return "•".repeat(key.length);
-  return key.slice(0, 4) + "•".repeat(Math.max(4, key.length - 8)) + key.slice(-4);
-}
-
-function getSelectedModel() {
-  const sel = document.getElementById("modelSelect").value;
-  if (sel === "__custom__") return document.getElementById("customModelInput").value.trim();
-  return sel;
-}
 
 // A page with a real text layer yields far more than a few characters; anything under
 // this is treated as "no usable text" (scanned/photographed page) and sent to OCR instead.
@@ -2486,13 +2455,12 @@ function parseEnvText(text) {
 // remains server-side and is never returned to this page.
 async function loadEnvConfig() {
   const banner = document.getElementById("setupBanner");
-  apiKeyInput.value = "server-managed";
   try {
     const response = await fetch("/api/health");
     const config = await response.json();
     if (!config.ready) {
       banner.hidden = false;
-      banner.innerHTML += `<div>Gemini is not configured yet. Copy .env.example to .env, add GEMINI_API_KEY, then restart SRX.</div>`;
+      banner.innerHTML += `<div>SRX Intelligence is not configured yet. Copy .env.example to .env, add the API key, then restart SRX.</div>`;
     }
   } catch {
     banner.hidden = false;
@@ -2521,27 +2489,7 @@ document.getElementById("downloadReportBtn").addEventListener("click", () => {
 document.getElementById("startNewBtn").addEventListener("click", resetApp);
 document.getElementById("startOverBtn").addEventListener("click", () => { if (confirm("Start over? Current progress will be lost.")) resetApp(); });
 
-const keyPeek = document.getElementById("keyPeek");
-const toggleKeyBtn = document.getElementById("toggleKeyBtn");
-toggleKeyBtn.addEventListener("click", () => {
-  const showing = !keyPeek.hidden;
-  if (showing) {
-    keyPeek.hidden = true; apiKeyInput.style.visibility = "visible"; toggleKeyBtn.setAttribute("aria-pressed", "false");
-  } else {
-    keyPeek.textContent = maskKey(apiKeyInput.value); keyPeek.hidden = false;
-    apiKeyInput.style.visibility = "hidden"; toggleKeyBtn.setAttribute("aria-pressed", "true");
-  }
-});
-apiKeyInput.addEventListener("input", () => {
-  if (!keyPeek.hidden) keyPeek.textContent = maskKey(apiKeyInput.value);
-  updateBeginButton();
-});
 monthInput.addEventListener("input", updateBeginButton);
-document.getElementById("modelSelect").addEventListener("change", (e) => {
-  document.getElementById("customModelInput").hidden = e.target.value !== "__custom__";
-  updateBeginButton();
-});
-document.getElementById("customModelInput").addEventListener("input", updateBeginButton);
 
 document.getElementById("destinationPill").addEventListener("click", changeDataFolder);
 document.getElementById("resumeLoadBtn").addEventListener("click", () => {

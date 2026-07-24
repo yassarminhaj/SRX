@@ -24,8 +24,7 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/api/health") {
       return sendJson(response, 200, {
-        ready: Boolean(process.env.GEMINI_API_KEY),
-        model
+        ready: Boolean(process.env.GEMINI_API_KEY)
       });
     }
 
@@ -67,7 +66,7 @@ async function handleReconcile(request, response) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return sendJson(response, 503, {
-      error: "GEMINI_API_KEY is not configured. Add it to .env and restart SRX."
+      error: "SRX Intelligence is not configured. Add the API key to .env and restart SRX."
     });
   }
 
@@ -93,7 +92,7 @@ async function handleReconcile(request, response) {
   if (!geminiResponse.ok) {
     console.error(`[SRX · Gemini ${geminiResponse.status}]`, raw);
     return sendJson(response, geminiResponse.status, {
-      error: "Gemini could not complete the reconciliation request."
+      error: "SRX Intelligence could not complete the reconciliation request."
     });
   }
 
